@@ -25,7 +25,7 @@ if __name__ == "__main__":
         usage()
 
     conn = MongoClient("da1.eecs.utk.edu" if socket.gethostname() == "75f7e392a7ec" else "localhost")
-    coll = conn['twitter'][output_coll[0]]
+    coll = conn['twitter'][output_coll]
 
     for filename in input_files:
         with open(filename, "r") as fd:
