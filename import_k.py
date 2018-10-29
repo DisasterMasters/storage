@@ -9,17 +9,17 @@ def usage():
     exit(-1)
 
 if __name__ == "__main__":
-    args = list(zip(sys.argv, sys.argv[1:]))
-
-    input_files = [i1 for i0, i1 in args if i0 != "-o" and i1 != "-o"]
+    input_files = []
     output_coll = None
 
-    for i0, i1 in args:
+    for i0, i1 in zip(sys.argv, sys.argv[1:]):
         if i0 == "-o":
             if output_coll is not None:
                 usage()
             else:
                 output_coll = i1
+        elif i1 != "-o":
+            input_files.append(i1)
 
     if len(input_files) == 0 or output_coll is None:
         usage()
@@ -27,11 +27,19 @@ if __name__ == "__main__":
     conn = MongoClient("da1.eecs.utk.edu" if socket.gethostname() == "75f7e392a7ec" else "localhost")
     coll = conn['twitter'][output_coll]
 
+    utf8stdout = open(1, 'w', encoding='utf-8', closefd=False)
+
     for filename in input_files:
         with open(filename, "r") as fd:
-            records = [json.loads(line) for line in fd]
+            records = [json.loads(line) for line in fd if line.strip()]
 
         for r in records:
-            r["_id"] = r["id"]
+            print(repr(r), file = utf8stdout)
+            if "id" in r:
+                r["_id"] = r["id"]
+            elif "id_str" in r:
+                r["_id"] = int(r["id_str"])
 
-        coll.insert_many(records, ordered = False)
+        sys.stdout.flush()
+
+        #coll.insert_many(records, ordered = False)
