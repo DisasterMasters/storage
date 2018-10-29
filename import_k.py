@@ -27,19 +27,16 @@ if __name__ == "__main__":
     conn = MongoClient("da1.eecs.utk.edu" if socket.gethostname() == "75f7e392a7ec" else "localhost")
     coll = conn['twitter'][output_coll]
 
-    utf8stdout = open(1, 'w', encoding='utf-8', closefd=False)
-
     for filename in input_files:
         with open(filename, "r") as fd:
-            records = [json.loads(line) for line in fd if line.strip()]
+            records = [json.loads(line.strip()) for line in fd if line.strip()]
+
+        records = list(filter(lambda r: "id" in r or "id_str" in r, records))
 
         for r in records:
-            print(repr(r), file = utf8stdout)
             if "id" in r:
                 r["_id"] = r["id"]
-            elif "id_str" in r:
+            else:
                 r["_id"] = int(r["id_str"])
 
-        sys.stdout.flush()
-
-        #coll.insert_many(records, ordered = False)
+        coll.insert_many(records, ordered = False)
