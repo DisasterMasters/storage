@@ -27,6 +27,10 @@ if __name__ == "__main__":
     conn = pymongo.MongoClient("da1.eecs.utk.edu" if socket.gethostname() == "75f7e392a7ec" else "localhost")
     coll = conn['twitter'][output_coll]
 
+    # Make tweets indexable by id and text fields
+    coll.ensure_index([('id', pymongo.ASCENDING)], name = 'id_index')
+    coll.ensure_index([('text', pymongo.TEXT)], name = 'search_index', default_language = 'english')
+
     for filename in input_files:
         map_f    = lambda ln: json.loads(ln.strip()) if ln.strip() else {}
         filter_f = lambda r:  "id" in r
@@ -36,6 +40,15 @@ if __name__ == "__main__":
 
         coll.insert_many(records, ordered = False)
 
-    # Make tweets indexable by id and text fields
-    coll.create_index([('id', pymongo.HASHED)], name = 'id_index')
-    coll.create_index([('text', pymongo.TEXT)], name = 'search_index', default_language = 'english')
+    # Delete duplicate tweets
+    dups = set()
+    ids = set()
+
+    for r in coll.find({}, {'id': True}):
+        if r['id'] in ids:
+            dups.add(r['_id'])
+
+        ids.add(r['id'])
+
+    for id in dups:
+        coll.remove({'_id': id})
