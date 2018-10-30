@@ -2,7 +2,7 @@ import json
 import socket
 import sys
 
-from pymongo import MongoClient
+import pymongo
 
 def usage():
     print("Usage: %s [JSON files] -o [MongoDB collection]" % sys.argv[0], file = sys.stderr)
@@ -24,14 +24,18 @@ if __name__ == "__main__":
     if len(input_files) == 0 or output_coll is None:
         usage()
 
-    conn = MongoClient("da1.eecs.utk.edu" if socket.gethostname() == "75f7e392a7ec" else "localhost")
+    conn = pymongo.MongoClient("da1.eecs.utk.edu" if socket.gethostname() == "75f7e392a7ec" else "localhost")
     coll = conn['twitter'][output_coll]
 
     for filename in input_files:
+        map_f    = lambda ln: json.loads(ln.strip()) if ln.strip() else {}
+        filter_f = lambda r:  "id" in r
+
         with open(filename, "r") as fd:
-            records = [json.loads(line.strip()) for line in fd if line.strip()]
-
-        records = list(filter(lambda r: "id" in r or "id_str" in r, records))
-
+            records = list(filter(filter_f, map(map_f, fd)))
 
         coll.insert_many(records, ordered = False)
+
+    # Make tweets indexable by id and text fields
+    coll.create_index([('id', pymongo.HASHED)], name = 'id_index')
+    coll.create_index([('text', pymongo.TEXT)], name = 'search_index', default_language = 'english')
