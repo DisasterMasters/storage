@@ -33,10 +33,5 @@ if __name__ == "__main__":
 
         records = list(filter(lambda r: "id" in r or "id_str" in r, records))
 
-        for r in records:
-            if "id" in r:
-                r["_id"] = r["id"]
-            else:
-                r["_id"] = int(r["id_str"])
 
         coll.insert_many(records, ordered = False)
