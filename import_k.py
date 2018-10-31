@@ -42,14 +42,13 @@ if __name__ == "__main__":
         coll.insert_many(records, ordered = False)
 
     # Delete duplicate tweets
-    dups = set()
+    dups = []
     ids = set()
 
-    for r in coll.find({}, {'id': True}):
+    for r in coll.find(projection = ["id"]):
         if r['id'] in ids:
-            dups.add(r['_id'])
+            dups.append(r['_id'])
 
         ids.add(r['id'])
 
-    for id in dups:
-        coll.remove({'_id': id})
+    coll.delete_many({'_id': {'$in': dups}})
