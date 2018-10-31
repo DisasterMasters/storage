@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
     for filename in input_files:
         map_f    = lambda ln: json.loads(ln.strip()) if ln.strip() else {}
-        filter_f = lambda r:  "id" in r
+        filter_f = lambda r:  type(r) is dict and "id" in r
 
         with open(filename, "r") as fd:
             records = list(filter(filter_f, map(map_f, fd)))
