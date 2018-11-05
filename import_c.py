@@ -1,8 +1,10 @@
 import csv
 import json
 import os
+import re
 import socket
 import sys
+from urllib.request import urlopen
 
 import pymongo
 
@@ -13,19 +15,24 @@ def usage():
 def read_bsv(fd, coll):
     records = []
 
-    for row in csv.DictReader(fd, delimiter = "|", quoting = csv.QUOTE_NONE):
-        r = {}
+    id_regex = re.compile(r"((https?://)?(www\.)?twitter\.com)?/(\w{1,15}/status|statuses)/(?P<id>\d+)/?")
+    fd_text = fd.read().splitlines()
 
-        if "'ID'" in row:
-            r["id"] = int(row["'ID'"])
-        elif "'permalink'" in row:
-            r["id"] = int(row["'permalink'"].split("/")[-1])
+    for ln, d in zip(fd_text[1:], csv.DictReader(fd_text, delimiter = "|", quoting = csv.QUOTE_NONE)):
+        r = {k.strip("'").lower(): v for k, v in d.items() if k is not None}
 
-        r["filename"] = fd.name
+        if "ID" in r:
+            r["id"] = int(r["ID"])
 
-        for k, v in row.items():
-            if k is not None and k != "'ID'":
-                r[k.strip("'").lower()] = v
+            del r["ID"]
+        else:
+            id_match = id_regex.search(ln)
+
+            if id_match is not None:
+                r["id"] = int(id_match.group("id"))
+
+        r["original_file"] = fd.name
+        r["original_line"] = ln
 
         records.append(r)
 
@@ -60,6 +67,8 @@ if __name__ == "__main__":
             for filename in filenames:
                 if filename[filename.rfind('.'):] == ".txt" and not "_WCOORDS" in filename:
                     with open(os.path.join(dirpath, filename), "r", newline = '') as fd:
+                        print(fd.name)
+
                         read_bsv(fd, coll)
 
     # Delete duplicate tweets
@@ -67,9 +76,10 @@ if __name__ == "__main__":
     ids = set()
 
     for r in coll.find(projection = ["id"]):
-        if r['id'] in ids:
-            dups.append(r['_id'])
+        if "id" in r:
+            if r['id'] in ids:
+                dups.append(r['_id'])
 
-        ids.add(r['id'])
+            ids.add(r['id'])
 
     coll.delete_many({'_id': {'$in': dups}})
