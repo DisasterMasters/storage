@@ -11,24 +11,23 @@ def usage():
     exit(-1)
 
 def read_bsv(fd, coll):
-    class ScrapyDialect(csv.Dialect):
-        delimiter = "|"
-        quotechar = "'"
-        doublequote = True
-        skipinitialspace = False
-        lineterminator = "\n"
-        quoting = csv.QUOTE_ALL
+    records = []
 
-    records = [dict(row) for row in csv.DictReader(fd, dialect = ScrapyDialect)]
+    for row in csv.DictReader(fd, delimiter = "|", quoting = csv.QUOTE_NONE):
+        r = {}
 
-    for r in records:
-        if "ID" in r:
-            r["id"] = int(r["ID"])
-            del r["ID"]
-        elif "permalink" in r:
-            r["id"] = int(r["permalink"].split("/")[-1])
+        if "'ID'" in row:
+            r["id"] = int(row["'ID'"])
+        elif "'permalink'" in row:
+            r["id"] = int(row["'permalink'"].split("/")[-1])
 
         r["filename"] = fd.name
+
+        for k, v in row.items():
+            if k is not None and k != "'ID'":
+                r[k.strip("'").lower()] = v
+
+        records.append(r)
 
     coll.insert_many(records, ordered = False)
 
@@ -59,8 +58,8 @@ if __name__ == "__main__":
     for dir in input_dirs:
         for dirpath, _, filenames in os.walk(dir):
             for filename in filenames:
-                if "_WCOORDS.txt" in filename:
-                    with open(os.path.join(dirpath, filename), "r") as fd:
+                if filename[filename.rfind('.'):] == ".txt" and not "_WCOORDS" in filename:
+                    with open(os.path.join(dirpath, filename), "r", newline = '') as fd:
                         read_bsv(fd, coll)
 
     # Delete duplicate tweets
