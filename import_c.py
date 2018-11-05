@@ -66,9 +66,7 @@ if __name__ == "__main__":
         for dirpath, _, filenames in os.walk(dir):
             for filename in filenames:
                 if filename[filename.rfind('.'):] == ".txt" and not "_WCOORDS" in filename:
-                    with open(os.path.join(dirpath, filename), "r", newline = '') as fd:
-                        print(fd.name)
-
+                    with open(os.path.join(dirpath, filename), "r") as fd:
                         read_bsv(fd, coll)
 
     # Delete duplicate tweets
