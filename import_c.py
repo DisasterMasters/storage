@@ -36,7 +36,8 @@ def read_bsv(fd, coll):
 
         records.append(r)
 
-    coll.insert_many(records, ordered = False)
+    if records:
+        coll.insert_many(records, ordered = False)
 
 if __name__ == "__main__":
     input_dirs = []
@@ -67,6 +68,7 @@ if __name__ == "__main__":
             for filename in filenames:
                 if filename[filename.rfind('.'):] == ".txt" and not "_WCOORDS" in filename:
                     with open(os.path.join(dirpath, filename), "r") as fd:
+                        print(fd.name)
                         read_bsv(fd, coll)
 
     # Delete duplicate tweets
