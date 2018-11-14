@@ -6,6 +6,8 @@ import sys
 import itertools
 import pickle
 from email.utils import format_datetime
+from urllib.request import urlopen
+from urllib.parse import urlencode
 
 import nltk
 import pymongo
@@ -106,7 +108,7 @@ if __name__ == "__main__":
 
             match, dist = process.extractOne(tweet["Tweet"], list(match_map.keys()))
 
-            if dist < 80:
+            if dist < 90:
                 print("Failed to find good match for tweet " + repr(tweet), file = sys.stderr)
                 return None
 
@@ -127,8 +129,8 @@ if __name__ == "__main__":
                 print("Failed to get tweet ID for " + repr(r), file = sys.stderr)
                 return None
 
-            except tweepy.Error:
-                print("Error with Twitter API (perhaps tweet is deleted?)", file = sys.stderr)
+            except tweepy.TweepError as e:
+                print("Error with Twitter API for %r (%r)" % (r, e), file = sys.stderr)
                 return None
 
             new_tweet = extended_to_compat(new_tweet)
@@ -151,8 +153,6 @@ if __name__ == "__main__":
         coll_labeled.create_index([('text', pymongo.TEXT)], name = 'search_index', default_language = 'english')
 
         coll_labeled.insert_many(successes)
-
-    print("The following tweets could not be added:", file = sys.stderr)
 
     csvout.writeheader()
     for f in failures:
