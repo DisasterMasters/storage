@@ -96,20 +96,27 @@ if __name__ == "__main__":
 
     tweets = list(csvin)
 
-    csvout = csv.DictReader(sys.stdout, fieldnames = csvin.fieldnames, dialect = csv.unix_dialect)
+    csvout = csv.DictWriter(sys.stdout, fieldnames = csvin.fieldnames, dialect = csv.unix_dialect)
 
     with contextlib.closing(pymongo.MongoClient()) as conn:
         coll = conn['twitter']['rawCIrma']
         api = tweepy.API(TWITTER_AUTH, parser = tweepy.parsers.JSONParser())
 
         def relookup(tweet):
+            def p(a):
+                print("\"" + tweet["Tweet"] + "\" -> " + a, file = sys.stderr)
+
             query = {"$text": {"$search": " ".join(nltk.tokenize.wordpunct_tokenize(tweet["Tweet"].strip().lower()))}}
             match_map = {r["text"]: r["_id"] for r in coll.find(query, projection = ["text"])}
+
+            if len(match_map) == 0:
+                p("Failed (mo match)")
+                return None
 
             match, dist = process.extractOne(tweet["Tweet"], list(match_map.keys()))
 
             if dist < 90:
-                print("Failed to find good match for tweet " + repr(tweet), file = sys.stderr)
+                p("Failed (mo match)")
                 return None
 
             r = coll.find_one({"_id": match_map[match]})
@@ -126,24 +133,24 @@ if __name__ == "__main__":
                 timestamp = format_datetime(datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc))
 
             except KeyError:
-                print("Failed to get tweet ID for " + repr(r), file = sys.stderr)
+                p("Failed (no status ID)")
                 return None
 
             except tweepy.TweepError as e:
-                print("Error with Twitter API for %r (%r)" % (r, e), file = sys.stderr)
+                p("Failed (Tweepy error: %r)" % e)
                 return None
 
             new_tweet = extended_to_compat(new_tweet)
             new_tweet["retrieved_at"] = timestamp
             new_tweet["code"] = tweet["Manual Coding"]
 
-            print("'%s' -> '%s' (%d%% match)" % (tweet["Tweet"], new_tweet["text"], dist), file = sys.stderr)
+            p("\"%s\" (%d%% match)" % (new_tweet["text"], dist))
 
             return new_tweet
 
         tweets = list(zip(tweets, map(relookup, tweets)))
 
-        successes = [new_tweet for tweet, new_tweet in tweets if new_tweet is not None]
+        successes = [new_tweet for _, new_tweet in tweets if new_tweet is not None]
         failures = [tweet for tweet, new_tweet in tweets if new_tweet is None]
 
         coll_labeled = conn['twitter']['labeledAIrma']
@@ -152,7 +159,19 @@ if __name__ == "__main__":
         coll_labeled.create_index([('id', pymongo.ASCENDING)], name = 'id_ordered_index')
         coll_labeled.create_index([('text', pymongo.TEXT)], name = 'search_index', default_language = 'english')
 
-        coll_labeled.insert_many(successes)
+        coll_labeled.insert_many(successes, ordered = False)
+
+        # Delete duplicate tweets
+        dups = []
+        ids = set()
+
+        for r in coll_labeled.find(projection = ["id"]):
+            if r['id'] in ids:
+                dups.append(r['_id'])
+
+            ids.add(r['id'])
+
+        coll_labeled.delete_many({'_id': {'$in': dups}})
 
     csvout.writeheader()
     for f in failures:
