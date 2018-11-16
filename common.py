@@ -28,7 +28,7 @@ def db_database():
 
 @contextlib.contextmanager
 def db_collection(db, collname):
-    coll = db['twitter'][collname]
+    coll = db[collname]
 
     coll.create_index([('id', pymongo.HASHED)], name = 'id_index')
     coll.create_index([('id', pymongo.ASCENDING)], name = 'id_ordered_index')
@@ -53,7 +53,7 @@ def timestamp_now():
 
 # Convert tweets obtained with extended REST API to a format similar to the
 # compatibility mode used by the streaming API
-def extended_to_compat(status, status_permalink = None):
+def compat(status, status_permalink = None):
     r = copy.deepcopy(status)
 
     full_text = r["full_text"]
@@ -117,6 +117,6 @@ def extended_to_compat(status, status_permalink = None):
         else:
             quoted_status_permalink = None
 
-        r["quoted_status"] = extended_to_compat(r["quoted_status"], quoted_status_permalink)
+        r["quoted_status"] = compat(r["quoted_status"], quoted_status_permalink)
 
     return r

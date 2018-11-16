@@ -9,9 +9,7 @@ from email.utils import format_datetime
 from urllib.request import urlopen
 from urllib.parse import urlencode
 
-import nltk
 import pymongo
-from fuzzywuzzy import process
 import tweepy
 
 TWITTER_AUTH = tweepy.OAuthHandler(
