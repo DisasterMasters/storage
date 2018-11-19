@@ -95,7 +95,7 @@ def statusconv(status, status_permalink = None):
 
     return r
 
-def read_bsv(filename, coll, api, coll_mut, api_mut):
+def read_bsv(filename, coll, coll_mut):
     class ScrapyDialect(csv.Dialect):
         delimiter = "|"
         quotechar = "'"
@@ -105,6 +105,8 @@ def read_bsv(filename, coll, api, coll_mut, api_mut):
         quoting = csv.QUOTE_MINIMAL
 
     records = []
+
+    api = tweepy.API(TWITTER_AUTH, parser = tweepy.parsers.JSONParser())
 
     thrd = threading.current_thread()
     thrd.total_ct = 0
@@ -131,14 +133,13 @@ def read_bsv(filename, coll, api, coll_mut, api_mut):
                 continue
 
             try:
-                with api_mut:
-                    tweet = api.get_status(
-                        tweet_id,
-                        tweet_mode = "extended",
-                        include_entities = True,
-                        monitor_rate_limit = True,
-                        wait_on_rate_limit = True
-                    )
+                tweet = api.get_status(
+                    tweet_id,
+                    tweet_mode = "extended",
+                    include_entities = True,
+                    monitor_rate_limit = True,
+                    wait_on_rate_limit = True
+                )
 
                 timestamp = format_datetime(datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc))
 
@@ -210,7 +211,7 @@ if __name__ == "__main__":
                 if filename[filename.rfind('.'):] == ".txt" and not "_WCOORDS" in filename:
                     pool.append(threading.Thread(
                         target = read_bsv,
-                        args = (os.path.join(dirpath, filename), coll, api, coll_mut, api_mut)
+                        args = (os.path.join(dirpath, filename), coll, coll_mut)
                     ))
 
                     pool[-1].start()
