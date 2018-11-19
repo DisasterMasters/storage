@@ -1,18 +1,17 @@
-import csv
+import re
 import copy
-import datetime
-import contextlib
+import csv
 import sys
-import itertools
-import pickle
+import threading
+import os
+import datetime
 from email.utils import format_datetime
 from urllib.request import urlopen
 from urllib.parse import urlencode
+import contextlib
 
-import nltk
-import pymongo
-from fuzzywuzzy import process
 import tweepy
+import pymongo
 
 TWITTER_AUTH = tweepy.OAuthHandler(
     "ZFVyefAyg58PTdG7m8Mpe7cze",
@@ -23,8 +22,13 @@ TWITTER_AUTH.set_access_token(
     "jGNOVDxllHhO57EaN2FVejiR7crpENStbZ7bHqwv2tYDU"
 )
 
-def extended_to_compat(status, status_permalink = None):
+# Convert tweets obtained with extended REST API to a format similar to the
+# compatibility mode used by the streaming API
+def statusconv(status, status_permalink = None):
     r = copy.deepcopy(status)
+
+    if "extended_tweet" in r:
+        return r
 
     full_text = r["full_text"]
     entities = r["entities"]
@@ -87,64 +91,147 @@ def extended_to_compat(status, status_permalink = None):
         else:
             quoted_status_permalink = None
 
-        r["quoted_status"] = extended_to_compat(r["quoted_status"], quoted_status_permalink)
+        r["quoted_status"] = statusconv(r["quoted_status"], quoted_status_permalink)
 
     return r
 
-if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: %s <input_coll> <output_coll>", file = sys.stderr)
-        exit(-1)
+def read_bsv(filename, coll, api, coll_mut, api_mut):
+    class ScrapyDialect(csv.Dialect):
+        delimiter = "|"
+        quotechar = "'"
+        doublequote = True
+        skipinitialspace = False
+        lineterminator = "\n"
+        quoting = csv.QUOTE_MINIMAL
 
-    tweets_ct = 0
-    successes_ct = 0
+    records = []
 
-    with contextlib.closing(pymongo.MongoClient()) as conn:
-        coll_in = conn['twitter'][sys.argv[1]]
-        coll_out = conn['twitter'][sys.argv[2]]
-        api = tweepy.API(TWITTER_AUTH, parser = tweepy.parsers.JSONParser())
+    thrd = threading.current_thread()
+    thrd.total_ct = 0
+    thrd.success_ct = 0
 
-        coll_out.create_index([('id', pymongo.HASHED)], name = 'id_index')
-        coll_out.create_index([('id', pymongo.ASCENDING)], name = 'id_ordered_index')
-        coll_out.create_index([('text', pymongo.TEXT)], name = 'search_index', default_language = 'english')
+    with open(filename, "r", newline = '') as fd:
+        reader = csv.DictReader(fd, dialect = ScrapyDialect)
 
-        for tweet in coll_in.find(projection = ["id"]):
-            tweets_ct += 1
+        for ln_csv in reader:
+            thrd.total_ct += 1
+
+            tweet_id = None
+
+            if "ID" in ln_csv:
+                tweet_id = int(ln_csv["ID"])
+            elif "permalink" in ln_csv:
+                match = re.search(r"[0-9]+", ln_csv["permalink"])
+
+                if match is not None:
+                    tweet_id = int(match.group())
+
+            if tweet_id is None:
+                print("%s:%d: No ID" % (filename, reader.line_num), file = sys.stderr)
+                continue
 
             try:
-                new_tweet = api.get_status(
-                    tweet["id"],
-                    tweet_mode = "extended",
-                    include_entities = True,
-                    monitor_rate_limit = True,
-                    wait_on_rate_limit = True
-                )
+                with api_mut:
+                    tweet = api.get_status(
+                        tweet_id,
+                        tweet_mode = "extended",
+                        include_entities = True,
+                        monitor_rate_limit = True,
+                        wait_on_rate_limit = True
+                    )
 
                 timestamp = format_datetime(datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc))
 
-            except KeyError:
-                pass
-
             except tweepy.TweepError as e:
-                pass
+                print("%s:%d: %r" % (filename, reader.line_num, e), file = sys.stderr)
+                continue
 
-            else:
-                new_tweet = extended_to_compat(new_tweet)
-                new_tweet["retrieved_at"] = timestamp
+            category_list = [
+                (r"gov_data/", "gov"),
+                (r"utility_data/", "utility"),
+                (r"media_data/", "media"),
+                (r"nonprofit_data/", "nonprofit"),
+                (r"Environmental Groups/", "nonprofit"),
+                (r"First Responders and Gov't/", "gov"),
+                (r"Individuals/", "private"),
+                (r"Insurance/", "private"),
+                (r"Local Media/", "media"),
+                (r"National Media/", "media"),
+                (r"Nonprofits/", "nonprofit"),
+                (r"Utilities/", "utility"),
+                (r"[KkWw][A-Za-z]{3}[^/]*.txt\Z", "media"),
+                (r"City[Oo]f[A-Za-z]+.txt\Z", "gov"),
+                (r"County.txt\Z", "gov")
+            ]
 
-                coll_out.insert_one(new_tweet)
-                successes_ct += 1
+            categories = set()
 
-        # Delete duplicate tweets
+            for regex, category in category_list:
+                if re.search(regex, filename) is not None:
+                    categories.add(category)
+
+            tweet = statusconv(tweet)
+
+            tweet["original_file"] = filename
+            tweet["original_line"] = reader.line_num
+            tweet["retrieved_at"] = timestamp
+            tweet["categories"] = list(categories)
+
+            records.append(tweet)
+            thrd.success_ct += 1
+
+    if records:
+        with coll_mut:
+            coll.insert_many(records, ordered = False)
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: %s <DATA dir> <output collection>", file = sys.stderr)
+        exit(-1)
+
+    total_ct = 0
+    success_ct = 0
+
+    with contextlib.closing(pymongo.MongoClient()) as conn:
+        coll = conn["twitter"][sys.argv[2]]
+        api = tweepy.API(TWITTER_AUTH, parser = tweepy.parsers.JSONParser())
+
+        coll_mut = threading.Lock()
+        api_mut = threading.Lock()
+        pool = []
+
+        # Set up indices
+        coll.create_index([('id', pymongo.HASHED)], name = 'id_index')
+        coll.create_index([('id', pymongo.ASCENDING)], name = 'id_ordered_index')
+        coll.create_index([('text', pymongo.TEXT)], name = 'search_index', default_language = 'english')
+
+        for dirpath, _, filenames in os.walk(sys.argv[1]):
+            for filename in filenames:
+                if filename[filename.rfind('.'):] == ".txt" and not "_WCOORDS" in filename:
+                    pool.append(threading.Thread(
+                        target = read_bsv,
+                        args = (os.path.join(dirpath, filename), coll, api, coll_mut, api_mut)
+                    ))
+
+                    pool[-1].start()
+
+        # Wait for all threads to finish
+        for thrd in pool:
+            thrd.join()
+
+            total_ct += thrd.total_ct
+            success_ct += thrd.success_ct
+
+        # Remove duplicates
         dups = []
         ids = set()
 
-        for r in coll_out.find(projection = ["id"]):
+        for r in coll.find(projection = ["id"]):
             if r['id'] in ids:
                 dups.append(r['_id'])
 
             ids.add(r['id'])
 
-        coll_out.delete_many({'_id': {'$in': dups}})
+        coll.delete_many({'_id': {'$in': dups}})
 
-    print("%d of %d tweets converted" % (successes_ct, tweets_ct))
+    print("%d of %d tweets added to %s" % (success_ct, total_ct, sys.argv[2]))

@@ -1,4 +1,5 @@
 import contextlib
+import copy
 import datetime
 from email.utils import format_datetime
 import socket
@@ -17,26 +18,23 @@ TWITTER_AUTH.set_access_token(
     "jGNOVDxllHhO57EaN2FVejiR7crpENStbZ7bHqwv2tYDU"
 )
 
+# Open a default connection
+def openconn():
+    return contextlib.closing(pymongo.MongoClient("da1.eecs.utk.edu" if socket.gethostname() == "75f7e392a7ec" else "localhost"))
+
+# Open a default collection (setting up indices and removing duplicates)
 @contextlib.contextmanager
-def db_database():
-    conn = pymongo.MongoClient("da1.eecs.utk.edu" if socket.gethostname() == "75f7e392a7ec" else "localhost")
+def opencoll(conn, collname, dbname = "twitter"):
+    coll = conn[dbname][collname]
 
-    try:
-        yield conn['twitter']
-    finally:
-        conn.close()
-
-@contextlib.contextmanager
-def db_collection(db, collname):
-    coll = db[collname]
-
+    # Set up indices
     coll.create_index([('id', pymongo.HASHED)], name = 'id_index')
     coll.create_index([('id', pymongo.ASCENDING)], name = 'id_ordered_index')
     coll.create_index([('text', pymongo.TEXT)], name = 'search_index', default_language = 'english')
 
     yield coll
 
-    # Delete duplicate tweets
+    # Remove duplicates
     dups = []
     ids = set()
 
@@ -48,13 +46,18 @@ def db_collection(db, collname):
 
     coll.delete_many({'_id': {'$in': dups}})
 
+# Generate a timestamp of the current time, compatible with the timestamps
+# found in Twitter's status objects
 def timestamp_now():
     return format_datetime(datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc))
 
 # Convert tweets obtained with extended REST API to a format similar to the
 # compatibility mode used by the streaming API
-def compat(status, status_permalink = None):
+def statusconv(status, status_permalink = None):
     r = copy.deepcopy(status)
+
+    if "extended_tweet" in r:
+        return r
 
     full_text = r["full_text"]
     entities = r["entities"]
@@ -117,6 +120,6 @@ def compat(status, status_permalink = None):
         else:
             quoted_status_permalink = None
 
-        r["quoted_status"] = compat(r["quoted_status"], quoted_status_permalink)
+        r["quoted_status"] = statusconv(r["quoted_status"], quoted_status_permalink)
 
     return r
