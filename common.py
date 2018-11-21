@@ -31,6 +31,7 @@ def opencoll(conn, collname, dbname = "twitter"):
     coll.create_index([('id', pymongo.HASHED)], name = 'id_index')
     coll.create_index([('id', pymongo.ASCENDING)], name = 'id_ordered_index')
     coll.create_index([('text', pymongo.TEXT)], name = 'search_index', default_language = 'english')
+    coll.create_index([('categories', pymongo.ASCENDING)], name = 'categories_index', sparse = True)
 
     yield coll
 
