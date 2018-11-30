@@ -1,23 +1,13 @@
-import re
-import copy
+import contextlib
 import csv
+import os
 import sys
 import threading
-import os
-import datetime
-from email.utils import format_datetime
-from urllib.request import urlopen
-from urllib.parse import urlencode
-import contextlib
 
 import tweepy
 import pymongo
 
-MUT = threading.Lock()
-
 def read_bsv(filename, coll, coll_mut):
-    global MUT
-
     print(filename + ": Starting")
 
     if "media" in filename:
