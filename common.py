@@ -1,7 +1,7 @@
 import contextlib
 import copy
 import datetime
-from email.utils import format_datetime
+from email.utils import parsedate_to_datetime
 import socket
 from urllib.request import urlopen
 from urllib.parse import urlencode
@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 import pymongo
 import tweepy
 
+# Twitter API authentication token
 TWITTER_AUTH = tweepy.OAuthHandler(
     "ZFVyefAyg58PTdG7m8Mpe7cze",
     "KyWRZ9QkiC2MiscQ7aGpl5K2lbcR3pHYFTs7SCVIyxMlVfGjw0"
@@ -20,40 +21,59 @@ TWITTER_AUTH.set_access_token(
 
 MONGODB_HOST = "da1.eecs.utk.edu" if socket.gethostname() == "75f7e392a7ec" else "localhost"
 
-'''
 # Open a default connection
-def openconn():
-    return contextlib.closing(pymongo.MongoClient("da1.eecs.utk.edu" if socket.gethostname() == "75f7e392a7ec" else "localhost"))
+def openconn(hostname = MONGODB_HOST):
+    return contextlib.closing(pymongo.MongoClient(hostname))
 
 # Open a default collection (setting up indices and removing duplicates)
 @contextlib.contextmanager
-def opencoll(conn, collname, dbname = "twitter"):
+def opencoll(conn, collname, colltype = "statuses", dbname = "twitter"):
     coll = conn[dbname][collname]
 
+    indices = {
+        "statuses": [
+            pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
+            pymongo.IndexModel([('user.id', pymongo.HASHED)], name = 'user_id_index'),
+            pymongo.IndexModel([('user.screen_name', pymongo.HASHED)], name = 'user_screen_name_index'),
+            pymongo.IndexModel([('text', pymongo.TEXT)], name = 'search_index', default_language = 'english'),
+            pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
+            pymongo.IndexModel([('categories', pymongo.ASCENDING)], name = 'categories_index', sparse = True)
+        ],
+        "users": [
+            pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
+            pymongo.IndexModel([('screen_name', pymongo.HASHED)], name = 'screen_name_index'),
+            pymongo.IndexModel([('description', pymongo.TEXT)], name = 'description_index'),
+            pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
+            pymongo.IndexModel([('categories', pymongo.ASCENDING)], name = 'categories_index', sparse = True)
+        ],
+        "geolocations": [
+            pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
+            pymongo.IndexModel([('geojson', pymongo.GEOSPHERE)], name = 'geojson_index')
+        ],
+        "images": [
+            pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index')
+        ],
+        "misc": []
+    }
+
     # Set up indices
-    coll.create_indices([
-        pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
-        pymongo.IndexModel([('user.id', pymongo.HASHED)], name = 'user_id_index'),
-        pymongo.IndexModel([('user.screen_name', pymongo.HASHED)], name = 'user_screen_name_index'),
-        pymongo.IndexModel([('text', pymongo.TEXT)], name = 'search_index', default_language = 'english'),
-        pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
-        pymongo.IndexModel([('categories', pymongo.ASCENDING)], name = 'categories_index', sparse = True)
-    ])
+    coll.create_indexes(indices[colltype])
 
     yield coll
 
     # Remove duplicates
-    dups = []
-    ids = set()
+    if colltype != "misc":
+        dups = []
+        ids = set()
 
-    for r in coll.find(projection = ["id"]):
-        if r['id'] in ids:
-            dups.append(r['_id'])
+        for r in coll.find(projection = ["id"]):
+            if r['id'] in ids:
+                dups.append(r['_id'])
 
-        ids.add(r['id'])
+            ids.add(r['id'])
 
-    coll.delete_many({'_id': {'$in': dups}})
-'''
+        coll.delete_many({'_id': {'$in': dups}})
+
 
 # Convert tweets obtained with extended REST API to a format similar to the
 # compatibility mode used by the streaming API
@@ -125,5 +145,20 @@ def statusconv(status, status_permalink = None):
             quoted_status_permalink = None
 
         r["quoted_status"] = statusconv(r["quoted_status"], quoted_status_permalink)
+
+    return r
+
+# Convert RFC 2822 date strings in a tweet to datetime objects
+def adddates(status, timestamp = None):
+    r = copy.deepcopy(status)
+
+    r["created_at"] = parsedate_to_datetime(r["created_at"])
+    r["user"]["created_at"] = parsedate_to_datetime(r["user"]["created_at"])
+
+    if "quoted_status" in r:
+        r["quoted_status"]["created_at"] = parsedate_to_datetime(r["quoted_status"]["created_at"])
+
+    if timestamp is not None:
+        r["retrieved_at"] = timestamp
 
     return r

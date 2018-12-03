@@ -25,6 +25,8 @@ if __name__ == "__main__":
         coll_in = conn["twitter"][sys.argv[1]]
         coll_out = conn["twitter"][sys.argv[2]]
 
+        api = tweepy.API(TWITTER_AUTH, parser = tweepy.parsers.JSONParser())
+
         indices = [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index')
             pymongo.IndexModel([('screen_name', pymongo.HASHED)], name = 'screen_name_index')

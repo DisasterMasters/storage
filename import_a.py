@@ -1,18 +1,14 @@
 import re
-import copy
-import csv
-import sys
-import threading
-import os
 import datetime
-import itertools
-from email.utils import format_datetime
+from email.utils import parsedate_to_datetime
+import contextlib
+import sys
+import copy
 from urllib.request import urlopen
 from urllib.parse import urlencode
-import contextlib
 
-import tweepy
 import pymongo
+import tweepy
 
 TWITTER_AUTH = tweepy.OAuthHandler(
     "ZFVyefAyg58PTdG7m8Mpe7cze",
@@ -96,92 +92,64 @@ def statusconv(status, status_permalink = None):
 
     return r
 
-def read_bsv(filename, coll, api):
-    print(filename + ": Starting")
+def add_dates(status, timestamp):
+    status["retrieved_at"] = timestamp
+    status["created_at"] = parsedate_to_datetime(status["created_at"])
+    status["user"]["created_at"] = parsedate_to_datetime(status["user"]["created_at"])
 
-    category_list = [
-        (r"gov_data/", "gov"),
-        (r"utility_data/", "utility"),
-        (r"media_data/", "media"),
-        (r"nonprofit_data/", "nonprofit"),
-        (r"Environmental Groups/", "nonprofit"),
-        (r"First Responders and Gov't/", "gov"),
-        (r"Individuals/", "private"),
-        (r"Insurance/", "private"),
-        (r"Local Media/", "media"),
-        (r"National Media/", "media"),
-        (r"Nonprofits/", "nonprofit"),
-        (r"Utilities/", "utility"),
-        (r"[KkWw][A-Za-z]{3}[^/]*.txt\Z", "media"),
-        (r"City[Oo]f[A-Za-z]+.txt\Z", "gov"),
-        (r"County.txt\Z", "gov")
-    ]
+    if "quoted_status" in status:
+        status["quoted_status"]["created_at"] = parsedate_to_datetime(status["user"]["created_at"])
 
-    categories = set()
+    return status
 
-    for regex, category in category_list:
-        if re.search(regex, filename) is not None:
-            categories.add(category)
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: %s <input collection> <output collection>", file = sys.stderr)
+        exit(-1)
 
-    categories = list(categories)
+    with contextlib.closing(pymongo.MongoClient()) as conn:
+        coll_in = conn["twitter"][sys.argv[1]]
+        coll_out = conn["twitter"][sys.argv[2]]
 
-    with open(filename, "r") as fd:
-        matches = itertools.chain.from_iterable(zip(
-            itertools.repeat(i + 1),
-            re.finditer(r"[0-9]{15,}", ln)
-        ) for i, ln in enumerate(fd))
+        api = tweepy.API(TWITTER_AUTH, parser = tweepy.parsers.JSONParser())
 
-        for lineno, match in matches:
+        indices = [
+            pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
+            pymongo.IndexModel([('screen_name', pymongo.HASHED)], name = 'screen_name_index'),
+            pymongo.IndexModel([('description', pymongo.TEXT)], name = 'description_index'),
+            pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
+            pymongo.IndexModel([('categories', pymongo.ASCENDING)], name = 'categories_index', sparse = True)
+        ]
+
+        coll_out.create_indexes(indices)
+
+        visited = set()
+
+        for r_in in coll_in.find(projection = ["id"]):
             try:
-                status = api.get_status(
-                    int(match.group()),
+                r_out = api.get_status(
+                    int(r_in["id"]),
                     tweet_mode = "extended",
                     include_entities = True,
                     monitor_rate_limit = True,
                     wait_on_rate_limit = True
                 )
 
-                timestamp = format_datetime(datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc))
+                timestamp = datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc)
 
             except tweepy.TweepError:
                 continue
 
-            status["original_file"] = filename
-            status["original_line"] = lineno
-            status["retrieved_at"] = timestamp
-            status["categories"] = categories
-
-            coll.insert_one(status)
-
-    print(filename + ": Done")
-
-if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: %s <DATA dir> <output collection>", file = sys.stderr)
-        exit(-1)
-
-    with contextlib.closing(pymongo.MongoClient()) as conn:
-        coll = conn["twitter"][sys.argv[2]]
-        api = tweepy.API(TWITTER_AUTH, parser = tweepy.parsers.JSONParser())
-
-        # Set up indices
-        coll.create_index([('id', pymongo.HASHED)], name = 'id_index')
-        coll.create_index([('id', pymongo.ASCENDING)], name = 'id_ordered_index')
-        coll.create_index([('text', pymongo.TEXT)], name = 'search_index', default_language = 'english')
-
-        for dirpath, _, filenames in os.walk(sys.argv[1]):
-            for filename in filenames:
-                if "_WCOORDS.txt" in filename:
-                    read_bsv(os.path.join(dirpath, filename), coll, api)
+            coll_out.insert_one(add_dates(statusconv(r_out), timestamp))
 
         # Remove duplicates
         dups = []
         ids = set()
 
-        for r in coll.find(projection = ["id"]):
+        for r in coll_out.find(projection = ["id"]):
             if r['id'] in ids:
                 dups.append(r['_id'])
 
             ids.add(r['id'])
 
-        coll.delete_many({'_id': {'$in': dups}})
+        coll_out.delete_many({'_id': {'$in': dups}})

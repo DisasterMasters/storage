@@ -14,7 +14,6 @@ if __name__ == "__main__":
 
     with contextlib.closing(pymongo.MongoClient(MONGODB_HOST)) as conn:
         for collname in sys.argv[1:]:
-
             coll = conn["twitter"][collname]
 
             filter = {"$or": [
@@ -42,7 +41,6 @@ if __name__ == "__main__":
 
                 if repl:
                     coll.update_one({"_id": r["_id"]}, {"$set": repl})
-                    ct += 1
 
             indices = [
                 pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),

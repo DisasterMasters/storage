@@ -29,8 +29,7 @@ if __name__ == "__main__":
 
     # Make tweets indexable by id and text fields
     coll.create_index([('id', pymongo.HASHED)], name = 'id_index')
-    coll.create_index([('id', pymongo.ASCENDING)], name = 'id_ordered_index')
-    coll.create_index([('text', pymongo.TEXT)], name = 'search_index', default_language = 'english')
+    coll.create_index([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english')
 
     for filename in input_files:
         map_f    = lambda ln: json.loads(ln.strip()) if ln.strip() else {}
