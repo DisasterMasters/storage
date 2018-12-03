@@ -18,6 +18,9 @@ TWITTER_AUTH.set_access_token(
     "jGNOVDxllHhO57EaN2FVejiR7crpENStbZ7bHqwv2tYDU"
 )
 
+MONGODB_HOST = "da1.eecs.utk.edu" if socket.gethostname() == "75f7e392a7ec" else "localhost"
+
+'''
 # Open a default connection
 def openconn():
     return contextlib.closing(pymongo.MongoClient("da1.eecs.utk.edu" if socket.gethostname() == "75f7e392a7ec" else "localhost"))
@@ -28,10 +31,14 @@ def opencoll(conn, collname, dbname = "twitter"):
     coll = conn[dbname][collname]
 
     # Set up indices
-    coll.create_index([('id', pymongo.HASHED)], name = 'id_index')
-    coll.create_index([('id', pymongo.ASCENDING)], name = 'id_ordered_index')
-    coll.create_index([('text', pymongo.TEXT)], name = 'search_index', default_language = 'english')
-    coll.create_index([('categories', pymongo.ASCENDING)], name = 'categories_index', sparse = True)
+    coll.create_indices([
+        pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
+        pymongo.IndexModel([('user.id', pymongo.HASHED)], name = 'user_id_index'),
+        pymongo.IndexModel([('user.screen_name', pymongo.HASHED)], name = 'user_screen_name_index'),
+        pymongo.IndexModel([('text', pymongo.TEXT)], name = 'search_index', default_language = 'english'),
+        pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
+        pymongo.IndexModel([('categories', pymongo.ASCENDING)], name = 'categories_index', sparse = True)
+    ])
 
     yield coll
 
@@ -46,11 +53,7 @@ def opencoll(conn, collname, dbname = "twitter"):
         ids.add(r['id'])
 
     coll.delete_many({'_id': {'$in': dups}})
-
-# Generate a timestamp of the current time, compatible with the timestamps
-# found in Twitter's status objects
-def timestamp_now():
-    return format_datetime(datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc))
+'''
 
 # Convert tweets obtained with extended REST API to a format similar to the
 # compatibility mode used by the streaming API

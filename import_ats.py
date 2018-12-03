@@ -1,6 +1,6 @@
 import re
 import datetime
-from email.utils import format_datetime
+from email.utils import parsedate_to_datetime
 import contextlib
 import sys
 
@@ -25,47 +25,53 @@ if __name__ == "__main__":
         coll_in = conn["twitter"][sys.argv[1]]
         coll_out = conn["twitter"][sys.argv[2]]
 
-        coll_out.create_index([('id', pymongo.HASHED)], name = 'id_index')
-        coll_out.create_index([('id', pymongo.ASCENDING)], name = 'id_ordered_index')
-        coll_out.create_index([('screen_name', pymongo.HASHED)], name = 'screen_name_index')
-        coll_out.create_index([('description', pymongo.TEXT)], name = 'description_index')
+        indices = [
+            pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index')
+            pymongo.IndexModel([('screen_name', pymongo.HASHED)], name = 'screen_name_index')
+            pymongo.IndexModel([('description', pymongo.TEXT)], name = 'description_index')
+            pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index')
+            pymongo.IndexModel([('categories', pymongo.ASCENDING)], name = 'categories_index', sparse = True)
+        ]
+
+        coll_out.create_indexes(indices)
 
         visited = set()
 
         for r_in in coll_in.find():
             try:
-                usernames = [r["user"]] + r["entities"]["user_mentions"]
+                uids = [r["user"]] + r["entities"]["user_mentions"]
 
                 if "extended_tweet" in r:
                     uids += r["extended_tweet"]["entities"]["user_mentions"]
 
-                usernames = (u["id"] for u in uids)
+                uid_iter = (u["id"] for u in uids)
             except KeyError:
-                usernames = (match.group()[1:] for match in re.finditer(r"@[A-Za-z0-9_]{1,15}", r["text"]))
+                uid_iter = (match.group()[1:] for match in re.finditer(r"@[A-Za-z0-9_]{1,15}", r["text"]))
 
             users = []
 
-            for u in usernames:
-                if u in visited:
+            for uid in uid_iter:
+                if uid in visited:
                     continue
 
-                visited.add(u)
+                visited.add(uid)
 
                 try:
                     user = api.get_user(
-                        u,
+                        uid,
                         tweet_mode = "extended",
                         include_entities = True,
                         monitor_rate_limit = True,
                         wait_on_rate_limit = True
                     )
 
-                    timestamp = format_datetime(datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc))
+                    timestamp = datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc)
 
                 except tweepy.TweepError:
                     continue
 
                 user["retrieved_at"] = timestamp
+                user["created_at"] = parsedate_to_datetime(user["created_at"])
                 users.append(user)
 
             coll_out.insert_many(users, ordered = False)
