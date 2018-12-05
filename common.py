@@ -5,6 +5,7 @@ from email.utils import parsedate_to_datetime
 import socket
 from urllib.request import urlopen
 from urllib.parse import urlencode
+import urllib.error
 
 import pymongo
 import tweepy
@@ -109,12 +110,13 @@ def statusconv(status, status_permalink = None):
             with urlopen('http://tinyurl.com/api-create.php?' + urlencode({'url': long_url})) as response:
                 short_url = response.read().decode()
 
-            status_permalink = {
-                "url": short_url,
-                "expanded_url": long_url,
-                "display_url": "twitter.com/tweet/web/status/\u2026",
-                "indices": [140 - len(short_url), 140]
-            }
+            else:
+                status_permalink = {
+                    "url": short_url,
+                    "expanded_url": long_url,
+                    "display_url": "twitter.com/tweet/web/status/\u2026",
+                    "indices": [140 - len(short_url), 140]
+                }
         else:
             short_url = status_permalink["url"]
             status_permalink["indices"] = [140 - len(short_url), 140]
