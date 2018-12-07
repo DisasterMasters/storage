@@ -3,9 +3,10 @@ import copy
 import datetime
 from email.utils import parsedate_to_datetime
 import socket
+import time
+import urllib.error
 from urllib.request import urlopen
 from urllib.parse import urlencode
-import urllib.error
 
 import pymongo
 import tweepy
@@ -20,25 +21,27 @@ TWITTER_AUTH.set_access_token(
     "jGNOVDxllHhO57EaN2FVejiR7crpENStbZ7bHqwv2tYDU"
 )
 
-MONGODB_HOST = "da1.eecs.utk.edu" if socket.gethostname() == "75f7e392a7ec" else "localhost"
-
 # Open a default connection
-def openconn(hostname = MONGODB_HOST):
+def openconn(hostname = "da1.eecs.utk.edu" if socket.gethostname() == "75f7e392a7ec" else "localhost"):
     return contextlib.closing(pymongo.MongoClient(hostname))
 
 # Open a default collection (setting up indices and removing duplicates)
 @contextlib.contextmanager
-def opencoll(conn, collname, colltype = "statuses", dbname = "twitter"):
+def opencoll(conn, collname, *, colltype = "statuses_a", dbname = "twitter"):
     coll = conn[dbname][collname]
 
     indices = {
-        "statuses": [
+        "statuses_a": [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
             pymongo.IndexModel([('user.id', pymongo.HASHED)], name = 'user_id_index'),
             pymongo.IndexModel([('user.screen_name', pymongo.HASHED)], name = 'user_screen_name_index'),
             pymongo.IndexModel([('text', pymongo.TEXT)], name = 'search_index', default_language = 'english'),
             pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
             pymongo.IndexModel([('categories', pymongo.ASCENDING)], name = 'categories_index', sparse = True)
+        ],
+        "statuses_c": [
+            pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index', sparse = True),
+            pymongo.IndexModel([('text', pymongo.TEXT)], name = 'search_index', default_language = 'english', sparse = True),
         ],
         "users": [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
@@ -53,25 +56,26 @@ def opencoll(conn, collname, colltype = "statuses", dbname = "twitter"):
         ],
         "images": [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index')
-        ],
-        "misc": []
+        ]
     }
 
     # Set up indices
-    coll.create_indexes(indices[colltype])
+    if colltype is not None:
+        coll.create_indexes(indices[colltype])
 
     yield coll
 
     # Remove duplicates
-    if colltype != "misc":
+    if colltype is not None:
         dups = []
         ids = set()
 
-        for r in coll.find(projection = ["id"]):
-            if r['id'] in ids:
-                dups.append(r['_id'])
+        with contextlib.closing(coll.find(projection = ["id"], no_cursor_timeout = True)) as cursor:
+            for r in cursor:
+                if r['id'] in ids:
+                    dups.append(r['_id'])
 
-            ids.add(r['id'])
+                ids.add(r['id'])
 
         coll.delete_many({'_id': {'$in': dups}})
 
@@ -107,16 +111,20 @@ def statusconv(status, status_permalink = None):
             long_url = "https://twitter.com/tweet/web/status/" + r["id_str"]
 
             # Use TinyURL to shorten link to tweet
-            with urlopen('http://tinyurl.com/api-create.php?' + urlencode({'url': long_url})) as response:
-                short_url = response.read().decode()
+            while True:
+                try:
+                    with urlopen('http://tinyurl.com/api-create.php?' + urlencode({'url': long_url})) as response:
+                        short_url = response.read().decode()
+                    break
+                except urllib.error.HTTPError:
+                    time.sleep(15)
 
-            else:
-                status_permalink = {
-                    "url": short_url,
-                    "expanded_url": long_url,
-                    "display_url": "twitter.com/tweet/web/status/\u2026",
-                    "indices": [140 - len(short_url), 140]
-                }
+            status_permalink = {
+                "url": short_url,
+                "expanded_url": long_url,
+                "display_url": "twitter.com/tweet/web/status/\u2026",
+                "indices": [140 - len(short_url), 140]
+            }
         else:
             short_url = status_permalink["url"]
             status_permalink["indices"] = [140 - len(short_url), 140]
@@ -150,8 +158,8 @@ def statusconv(status, status_permalink = None):
 
     return r
 
-# Convert RFC 2822 date strings in a tweet to datetime objects
-def adddates(status, timestamp = None):
+# Convert RFC 2822 date strings in a status to datetime objects
+def adddates(status, retrieved_at = None):
     r = copy.deepcopy(status)
 
     r["created_at"] = parsedate_to_datetime(r["created_at"])
@@ -160,7 +168,7 @@ def adddates(status, timestamp = None):
     if "quoted_status" in r:
         r["quoted_status"]["created_at"] = parsedate_to_datetime(r["quoted_status"]["created_at"])
 
-    if timestamp is not None:
-        r["retrieved_at"] = timestamp
+    if retrieved_at is not None:
+        r["retrieved_at"] = retrieved_at
 
     return r
