@@ -8,7 +8,8 @@ import datetime
 
 import tweepy
 
-from ..common import *
+sys.path.append("..")
+from common import *
 
 class OldKeywordThread(threading.Thread):
     max_id_regex = re.compile(r"max_id=(?P<max_id>\d+)")

@@ -5,7 +5,8 @@ import datetime
 
 import tweepy
 
-from ..common import *
+sys.path.append("..")
+from common import *
 
 class QueueListener(tweepy.StreamListener):
     def __init__(self, qu, ev):
