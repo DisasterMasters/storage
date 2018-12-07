@@ -7,7 +7,8 @@ import threading
 
 import tweepy
 
-from ..common import *
+sys.path.append("..")
+from common import *
 from oldtweets import OldKeywordThread, OldUsernameThread
 from newtweets import NewKeywordThread, NewUsernameThread
 
