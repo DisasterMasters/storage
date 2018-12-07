@@ -85,7 +85,7 @@ if __name__ == "__main__":
         pool.append(NewUsernameThread(new_usernames, qu, ev))
         pool[-1].start()
 
-    with openconn() as conn, opencoll(opts["COLLNAME"]) as coll:
+    with openconn() as conn, opencoll(conn, opts["COLLNAME"]) as coll:
         put_statuses_into_collection(coll, qu)
 
         for thrd in pool:
