@@ -2,11 +2,9 @@ from email.utils import parsedate_to_datetime
 import threading
 import time
 import datetime
-import sys
 
 import tweepy
 
-sys.path.append("..")
 from common import *
 
 class QueueListener(tweepy.StreamListener):

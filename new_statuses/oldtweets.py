@@ -5,11 +5,9 @@ import threading
 from urllib.request import urlopen
 from urllib.parse import urlencode
 import datetime
-import sys
 
 import tweepy
 
-sys.path.append("..")
 from common import *
 
 class OldKeywordThread(threading.Thread):

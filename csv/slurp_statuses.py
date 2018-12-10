@@ -8,7 +8,7 @@ import threading
 
 import tweepy
 
-from ..common import *
+from common import *
 
 def read_csv(filename, api, api_mut, coll, coll_mut):
     fileno = os.open(filename, O_RDONLY)

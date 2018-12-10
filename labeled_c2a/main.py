@@ -5,7 +5,7 @@ import sys
 
 import tweepy
 
-from ..common import *
+from common import *
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:

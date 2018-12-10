@@ -3,7 +3,7 @@ import os
 import sys
 import threading
 
-from ..common import *
+from common import *
 
 def read_csv(filename, coll, coll_mut):
     ext = filename[filename.rfind("."):]
