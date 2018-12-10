@@ -1,4 +1,3 @@
-import datetime
 from email.utils import format_datetime
 import queue
 import signal
@@ -24,7 +23,7 @@ def put_statuses_into_collection(coll, qu):
         status = qu.get()
 
         if status is signal.SIGINT:
-            print("SIGINT received at " + format_datetime(datetime.datetime.utcnow()))
+            print("SIGINT received")
             break
         elif type(status) is list and type(status[0]) is dict:
             # For debugging

@@ -1,10 +1,10 @@
 import copy
+import datetime
 from email.utils import parsedate_to_datetime
 import re
 import threading
 from urllib.request import urlopen
 from urllib.parse import urlencode
-import datetime
 
 import tweepy
 

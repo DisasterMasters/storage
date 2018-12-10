@@ -6,6 +6,7 @@ import sys
 import tweepy
 
 from common import *
+from textsearch import gen_process
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -18,62 +19,37 @@ if __name__ == "__main__":
     with open(sys.argv[1], "r") as fd:
         exec(fd.read(), opts)
 
-    with contextlib.ExitStack() as exitstack:
-        conn = exitstack.enter_context(openconn())
-        coll = exitstack.enter_context(opencoll(conn, opts["COLLNAME"]))
+    with openconn() as conn, opencoll(conn, opts["COLLNAME"]) as coll:
+        with contextlib.ExitStack() as exitstack:
+            colls_in = [conn["twitter"][collname] for collname in opts["COLLNAME_STATUSES_A"]]
+            sources = []
 
-        colls_in = [conn["twitter"][collname] for collname in opts["COLLECTIONS_STATUSES_A"]]
+            for collname in opts["COLLNAME_STATUSES_C"]:
+                cursor = conn["twitter"][collname].find(no_cursor_timeout = True)
+                exitstack.enter_context(contextlib.closing(cursor))
 
-        id_search = lambda id: id_search(colls_in, id)
-        text_search = lambda text: text_search(colls_in, text)
+                sources.append(cursor)
 
-        sources = []
+            for filename in opts["FILES_STATUSES_C"]:
+                fd = exitstack.enter_context(open(filename, "r", newline = ""))
 
-        for collname in opts["COLLECTIONS_STATUSES_C"]:
-            cursor = conn["twitter"][collname].find(no_cursor_timeout = True)
-            exitstack.enter_context(contextlib.closing(cursor))
+                if opts["CSV_DIALECT_OVERRIDE"] is None:
+                    dialect = csv.Sniffer().sniff(fd.read(4096))
+                    fd.seek(0)
+                else:
+                    dialect = opts["CSV_DIALECT_OVERRIDE"]
 
-            sources.append(cursor)
+                sources.append(csv.DictReader(fd, dialect = dialect))
 
-        for filename in opts["FILES_STATUSES_C"]:
-            fd = exitstack.enter_context(open(filename, "r", newline = ""))
+            process_f = gen_process(
+                opts["GET_ID_FIELD"],
+                opts["GET_TEXT_FIELD"],
+                opts["GET_CATEGORIES_FIELD"],
+                api,
+                colls_in
+            )
 
-            dialect = csv.Sniffer().sniff(fd.read(4096))
-            fd.seek(0)
+            # TODO: Thread this
+            records = [process_f(r) for r in itertools.chain.from_iterable(sources)]
 
-            sources.append(csv.DictReader(fd, dialect = dialect))
-
-        for labeled_datum in itertools.chain.from_iterable(sources):
-            if opts["ID_FIELD"] is None:
-                r = text_search(labeled_datum[opts["TEXT_FIELD"]])
-
-                if r is None:
-                    continue
-            else:
-                id = int(labeled_datum[opts["ID_FIELD"]])
-
-                r = id_search(id)
-
-                if r is None:
-                    try:
-                        r = api.get_status(
-                            id,
-                            tweet_mode = "extended",
-                            include_entities = True,
-                            monitor_rate_limit = True,
-                            wait_on_rate_limit = True
-                        )
-
-                        retrieved_at = datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc)
-
-                    except tweepy.TweepError:
-                        continue
-
-                    r = adddates(statusconv(r), retrieved_at)
-
-            for k in opts["FIELDS_KEEP"]:
-                r[k] = labeled_datum[k]
-
-            conn.insert_one(r)
-            # TODO
-
+        coll.insert_many(list(filter(None, records)), ordered = False)

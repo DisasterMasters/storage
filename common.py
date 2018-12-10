@@ -72,10 +72,11 @@ def opencoll(conn, collname, *, colltype = "statuses_a", dbname = "twitter"):
 
         with contextlib.closing(coll.find(projection = ["id"], no_cursor_timeout = True)) as cursor:
             for r in cursor:
-                if r['id'] in ids:
-                    dups.append(r['_id'])
+                if 'id' in r:
+                    if r['id'] in ids:
+                        dups.append(r['_id'])
 
-                ids.add(r['id'])
+                    ids.add(r['id'])
 
         coll.delete_many({'_id': {'$in': dups}})
 
