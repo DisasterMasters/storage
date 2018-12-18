@@ -27,7 +27,7 @@ def openconn(hostname = "da1.eecs.utk.edu" if socket.gethostname() == "75f7e392a
 
 # Open a default collection (setting up indices and removing duplicates)
 @contextlib.contextmanager
-def opencoll(conn, collname, *, colltype = "statuses_a", dbname = "twitter"):
+def opencoll(conn, collname, *, colltype = "statuses_a", dbname = "twitter", cleanup = True):
     coll = conn[dbname][collname]
 
     indices = {
@@ -35,13 +35,13 @@ def opencoll(conn, collname, *, colltype = "statuses_a", dbname = "twitter"):
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
             pymongo.IndexModel([('user.id', pymongo.HASHED)], name = 'user_id_index'),
             pymongo.IndexModel([('user.screen_name', pymongo.HASHED)], name = 'user_screen_name_index'),
-            pymongo.IndexModel([('text', pymongo.TEXT)], name = 'search_index', default_language = 'english'),
+            pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english'),
             pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
             pymongo.IndexModel([('categories', pymongo.ASCENDING)], name = 'categories_index', sparse = True)
         ],
         "statuses_c": [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index', sparse = True),
-            pymongo.IndexModel([('text', pymongo.TEXT)], name = 'search_index', default_language = 'english', sparse = True),
+            pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english', sparse = True),
         ],
         "users": [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
@@ -66,7 +66,7 @@ def opencoll(conn, collname, *, colltype = "statuses_a", dbname = "twitter"):
     yield coll
 
     # Remove duplicates
-    if colltype is not None:
+    if colltype is not None and cleanup:
         dups = []
         ids = set()
 
@@ -78,7 +78,8 @@ def opencoll(conn, collname, *, colltype = "statuses_a", dbname = "twitter"):
 
                     ids.add(r['id'])
 
-        coll.delete_many({'_id': {'$in': dups}})
+        for i in range(0, len(dups), 800000):
+            coll.delete_many({"_id": {"$in": dups[i:i + 800000]}})
 
 
 # Convert tweets obtained with extended REST API to a format similar to the
