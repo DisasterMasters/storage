@@ -42,6 +42,7 @@ def opencoll(conn, collname, *, colltype = "statuses_a", dbname = "twitter", cle
         "statuses_c": [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index', sparse = True),
             pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english', sparse = True),
+            pymongo.IndexModel([('categories', pymongo.ASCENDING)], name = 'categories_index', sparse = True)
         ],
         "users": [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
