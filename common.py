@@ -33,6 +33,7 @@ def opencoll(conn, collname, *, colltype = "statuses_a", dbname = "twitter", cle
     indices = {
         "statuses_a": [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
+            # pymongo.IndexModel([('id', pymongo.ASCENDING)], name = 'id_ordered_index', unique = True),
             pymongo.IndexModel([('user.id', pymongo.HASHED)], name = 'user_id_index'),
             pymongo.IndexModel([('user.screen_name', pymongo.HASHED)], name = 'user_screen_name_index'),
             pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english'),
@@ -57,6 +58,8 @@ def opencoll(conn, collname, *, colltype = "statuses_a", dbname = "twitter", cle
         ],
         "images": [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index')
+            # pymongo.IndexModel([('md5sum', pymongo.HASHED)], name = 'md5sum_index'),
+            # pymongo.IndexModel([('sha1sum', pymongo.HASHED)], name = 'sha1sum_index'),
         ]
     }
 
