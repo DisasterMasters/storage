@@ -47,12 +47,13 @@ if __name__ == "__main__":
         if os.path.isdir(arg):
             for dirpath, _, filenames in os.walk(arg):
                 for filename in filenames:
-                    pool.append(threading.Thread(
-                        target = read_csv,
-                        args = (os.path.join(dirpath, filename), id_set, id_set_mut)
-                    ))
+                    if filename[filename.rfind('.'):] == ".txt":
+                        pool.append(threading.Thread(
+                            target = read_csv,
+                            args = (os.path.join(dirpath, filename), id_set, id_set_mut)
+                        ))
 
-                    pool[-1].start()
+                        pool[-1].start()
         else:
             pool.append(threading.Thread(
                 target = read_csv,
