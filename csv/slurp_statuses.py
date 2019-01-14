@@ -88,6 +88,8 @@ if __name__ == "__main__":
         statuses.append(adddates(statusconv(r), retrieved_at))
 
     # Just in case
+    import pickle
+
     with open(sys.argv[-1] + ".pkl", "wb") as fd:
         pickle.dump(statuses, fd)
 
