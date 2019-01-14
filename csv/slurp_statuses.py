@@ -17,7 +17,7 @@ from common import *
 def read_csv(filename, id_set, id_set_mut):
     print("%s: Starting" % filename)
 
-    fileno = os.open(filename, O_RDONLY)
+    fileno = os.open(filename, os.O_RDONLY)
 
     try:
         with mmap.mmap(fileno, 0, access = mmap.ACCESS_READ) as mm:
