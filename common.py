@@ -38,19 +38,19 @@ def opencoll(conn, collname, *, colltype = "statuses_a", dbname = "twitter", cle
             pymongo.IndexModel([('user.screen_name', pymongo.HASHED)], name = 'user_screen_name_index'),
             pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english'),
             pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
-            pymongo.IndexModel([('categories', pymongo.ASCENDING)], name = 'categories_index', sparse = True)
+            pymongo.IndexModel([('tags', pymongo.ASCENDING)], name = 'tags_index', sparse = True)
         ],
         "statuses_c": [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index', sparse = True),
             pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english', sparse = True),
-            pymongo.IndexModel([('categories', pymongo.ASCENDING)], name = 'categories_index', sparse = True)
+            pymongo.IndexModel([('tags', pymongo.ASCENDING)], name = 'tags_index', sparse = True)
         ],
         "users": [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
             pymongo.IndexModel([('screen_name', pymongo.HASHED)], name = 'screen_name_index'),
             pymongo.IndexModel([('description', pymongo.TEXT)], name = 'description_index'),
             pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
-            pymongo.IndexModel([('categories', pymongo.ASCENDING)], name = 'categories_index', sparse = True)
+            #pymongo.IndexModel([('categories', pymongo.ASCENDING)], name = 'categories_index', sparse = True)
         ],
         "geolocations": [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
