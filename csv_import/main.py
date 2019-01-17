@@ -55,17 +55,20 @@ def read_csv(opts, filename, coll, coll_mut):
         dictreader = csv.DictReader(fd, fieldnames, dialect = dialect)
 
         for row in dictreader:
-            #try:
-            r = opts["PREPROCESS_FUNC"](filename, row)
-            #except:
-            #    print("Bad line:", row)
-            #    r = None
+            try:
+                r = opts["PREPROCESS_FUNC"](filename, row)
+            except:
+                exit(-1)
 
             if r is None:
+                print("Bad line in %s:%d: {" % (filename, dictreader.line_num))
+                for k, v in row.items():
+                    print("\t%r: %r" % (k, v))
+                print("}")
                 continue
 
             # Strip superfluous single quotes
-            r["original"] = {(k.strip("'") if k is not None else "null"): v for k, v in row.items()}
+            r["original"] = {k if isinstance(k, str) else repr(k): v for k, v in row.items()}
             r["original_file"] = filename
             r["original_line"] = dictreader.line_num
 
