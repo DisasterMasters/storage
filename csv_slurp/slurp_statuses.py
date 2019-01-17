@@ -68,13 +68,10 @@ if __name__ == "__main__":
     for thrd in pool:
         thrd.join()
 
-    if len(sys.argv) > 1:
-        try:
-            with open(sys.argv[1], "rb") as fd:
-                statuses = pickle.load(fd)
-        except FileNotFoundError:
-            statuses = []
-    else:
+    try:
+        with open(sys.argv[1] + ".pkl", "rb") as fd:
+            statuses = pickle.load(fd)
+    except FileNotFoundError:
         statuses = []
 
     for status in statuses:
@@ -100,8 +97,8 @@ if __name__ == "__main__":
         statuses.append(adddates(statusconv(r), retrieved_at))
 
         # Every so often, save the statuses that we have to a file
-        if i & 0x200 != 0 and len(sys.argv) > 1:
-            with open(sys.argv[1], "wb") as fd:
+        if i % 450 == 0:
+            with open(sys.argv[-1] + ".pkl", "wb") as fd:
                 pickle.dump(statuses, fd)
 
     print("Adding statuses to collection %s..." % sys.argv[-1])
