@@ -1,6 +1,8 @@
 import datetime
+import itertools
 import mmap
 import os
+import pickle
 import re
 import sys
 import threading
@@ -66,11 +68,21 @@ if __name__ == "__main__":
     for thrd in pool:
         thrd.join()
 
-    statuses = []
+    if len(sys.argv) > 1:
+        try:
+            with open(sys.argv[1], "rb") as fd:
+                statuses = pickle.load(fd)
+        except FileNotFoundError:
+            statuses = []
+    else:
+        statuses = []
+
+    for status in statuses:
+        id_set.discard(status["id"])
 
     print("Getting statuses...")
 
-    for id in tqdm(id_set):
+    for i, id in zip(itertools.count(), tqdm(id_set)):
         try:
             r = api.get_status(
                 id,
@@ -87,11 +99,10 @@ if __name__ == "__main__":
 
         statuses.append(adddates(statusconv(r), retrieved_at))
 
-    # Just in case
-    import pickle
-
-    with open(sys.argv[-1] + ".pkl", "wb") as fd:
-        pickle.dump(statuses, fd)
+        # Every so often, save the statuses that we have to a file
+        if i & 0x200 != 0 and len(sys.argv) > 1:
+            with open(sys.argv[1], "wb") as fd:
+                pickle.dump(statuses, fd)
 
     print("Adding statuses to collection %s..." % sys.argv[-1])
 
