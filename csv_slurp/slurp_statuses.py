@@ -71,11 +71,16 @@ if __name__ == "__main__":
     try:
         with open(sys.argv[1] + ".pkl", "rb") as fd:
             statuses = pickle.load(fd)
+            failure = pickle.load(fd)
     except FileNotFoundError:
         statuses = []
+        failures = []
 
     for status in statuses:
         id_set.discard(status["id"])
+
+    for failure in failures:
+        id_set.discard(failures)
 
     print("Getting statuses...")
 
@@ -92,6 +97,7 @@ if __name__ == "__main__":
             retrieved_at = datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc)
 
         except tweepy.TweepError:
+            failures.append(id)
             continue
 
         statuses.append(adddates(statusconv(r), retrieved_at))
@@ -100,6 +106,7 @@ if __name__ == "__main__":
         if i % 450 == 0:
             with open(sys.argv[-1] + ".pkl", "wb") as fd:
                 pickle.dump(statuses, fd)
+                pickle.dump(failures, fd)
 
     print("Adding statuses to collection %s..." % sys.argv[-1])
 
