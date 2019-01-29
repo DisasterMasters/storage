@@ -84,7 +84,7 @@ if __name__ == "__main__":
 
     print("Getting statuses...")
 
-    for i, id in zip(itertools.count(), tqdm(id_set)):
+    for id, flush in zip(tqdm(id_set), (i % 450 == 0 for i in itertools.count())):
         try:
             r = api.get_status(
                 id,
@@ -103,7 +103,7 @@ if __name__ == "__main__":
         statuses.append(adddates(statusconv(r), retrieved_at))
 
         # Every so often, save the statuses that we have to a file
-        if i % 450 == 0:
+        if flush:
             with open(sys.argv[-1] + ".pkl", "wb") as fd:
                 pickle.dump(statuses, fd)
                 pickle.dump(failures, fd)

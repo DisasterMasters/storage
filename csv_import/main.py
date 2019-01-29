@@ -30,6 +30,7 @@ def read_csv(opts, filename, coll, coll_mut):
             conf = opts["GET_DIALECT_FIELDNAMES_FUNC"](filename)
 
             if conf is None:
+                print(filename + ": Done")
                 return
             elif isinstance(conf, tuple):
                 dialect, fieldnames = conf
@@ -55,10 +56,7 @@ def read_csv(opts, filename, coll, coll_mut):
         dictreader = csv.DictReader(fd, fieldnames, dialect = dialect)
 
         for row in dictreader:
-            try:
-                r = opts["PREPROCESS_FUNC"](filename, row)
-            except:
-                exit(-1)
+            r = opts["PREPROCESS_FUNC"](filename, row)
 
             if r is None:
                 print("Bad line in %s:%d: {" % (filename, dictreader.line_num))

@@ -22,5 +22,5 @@ def PREPROCESS_FUNC(r):
 # called if USE_SNIFFER is false. If the file should be skipped, then None
 # should be returned. Optionally, a second return value can be given to specify
 # the header of the file
-def GET_DIALECT_FUNC(filename):
+def GET_DIALECT_FIELDNAMES_FUNC(filename):
     return csv.excel
