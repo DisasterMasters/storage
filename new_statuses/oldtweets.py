@@ -44,6 +44,10 @@ class OldKeywordThread(threading.Thread):
             self.qu.put([adddates(statusconv(r), timestamp) for r in results["statuses"]])
 
             try:
+                # This code _should_ work, but a lot of the time it crashes and
+                # I don't know why. In that case, it's a somewhat safe
+                # assumption that the tweet IDs are ordered, so just use the
+                # smallest one we got so far as our new max_id
                 max_id_match = OldKeywordThread.max_id_regex.search(results["search_metadata"]["next_results"])
                 max_id = int(max_id_match.group("max_id"))
             except:
