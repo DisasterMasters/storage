@@ -43,10 +43,10 @@ class OldKeywordThread(threading.Thread):
 
             self.qu.put([adddates(statusconv(r), timestamp) for r in results["statuses"]])
 
-            max_id_match = OldKeywordThread.max_id_regex.search(results["search_metadata"]["next_results"])
-            if max_id_match is not None:
+            try:
+                max_id_match = OldKeywordThread.max_id_regex.search(results["search_metadata"]["next_results"])
                 max_id = int(max_id_match.group("max_id"))
-            else:
+            except:
                 max_id = min(statuses, key = lambda r: r["id"])["id"] - 1
 
 class OldUsernameThread(threading.Thread):
