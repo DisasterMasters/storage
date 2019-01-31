@@ -51,7 +51,7 @@ class OldKeywordThread(threading.Thread):
                 max_id_match = OldKeywordThread.max_id_regex.search(results["search_metadata"]["next_results"])
                 max_id = int(max_id_match.group("max_id"))
             except:
-                max_id = min(statuses, key = lambda r: r["id"])["id"] - 1
+                max_id = min(results["statuses"], key = lambda r: r["id"])["id"] - 1
 
 class OldUsernameThread(threading.Thread):
     def __init__(self, queries, qu, ev):
