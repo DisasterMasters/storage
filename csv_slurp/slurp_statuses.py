@@ -59,7 +59,7 @@ if __name__ == "__main__":
         else:
             pool.append(threading.Thread(
                 target = read_csv,
-                args = (arg, api, api_mut, coll, coll_mut)
+                args = (arg, id_set, id_set_mut)
             ))
 
             pool[-1].start()
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     try:
         with open(sys.argv[1] + ".pkl", "rb") as fd:
             statuses = pickle.load(fd)
-            failure = pickle.load(fd)
+            failures = pickle.load(fd)
     except FileNotFoundError:
         statuses = []
         failures = []
@@ -80,7 +80,7 @@ if __name__ == "__main__":
         id_set.discard(status["id"])
 
     for failure in failures:
-        id_set.discard(failures)
+        id_set.discard(failure)
 
     print("Getting statuses...")
 
@@ -103,6 +103,7 @@ if __name__ == "__main__":
         statuses.append(adddates(statusconv(r), retrieved_at))
 
         # Every so often, save the statuses that we have to a file
+        # TODO: Make this more efficient
         if flush:
             with open(sys.argv[-1] + ".pkl", "wb") as fd:
                 pickle.dump(statuses, fd)
