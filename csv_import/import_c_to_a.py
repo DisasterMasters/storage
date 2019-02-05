@@ -1,3 +1,4 @@
+from email.utils import format_datetime
 import sys
 
 import tweepy
@@ -29,5 +30,12 @@ if __name__ == "__main__":
 
             except tweepy.TweepError:
                 continue
+
+            print("\"%s\" -- @%s, %s (retrieved %s)" % (
+                r["text"],
+                r["user"]["screen_name"],
+                r["created_at"],
+                format_datetime(retrieved_at)
+            ))
 
             coll_to.insert_one(adddates(statusconv(r), retrieved_at))
