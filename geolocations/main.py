@@ -1,7 +1,4 @@
 import collections
-import contextlib
-import datetime
-import math
 import threading
 import os
 import sys
@@ -12,6 +9,7 @@ import shelve
 import nltk
 import pymongo
 
+from common import *
 from geocode import GeolocationDB
 from geojson import geojson_to_coords
 from address import StreetAddress
@@ -23,30 +21,55 @@ if __name__ == "__main__":
 
     ctr = collections.Counter()
 
-    with GeolocationDB("geolocations") as geodb, contextlib.closing(pymongo.MongoClient()) as conn:
+    with GeolocationDB("geolocations") as geodb, openconn() as conn:
         def get_coord_info(r):
+            addr = None
+
+            ctr["tweet"] += 1
+
             try:
                 text = r["extended_tweet"]["full_text"]
             except KeyError:
                 text = r["text"]
 
             if r["coordinates"] is not None:
+                source = "coordinates"
                 geojson = r["coordinates"]
-            elif r["place"] is not None:
-                geojson = r["place"]["bounding_box"]
-            else:
 
+                ctr["tweet_geo"] += 1
+            elif r["place"] is not None:
+                source = "place"
+                geojson = r["place"]["bounding_box"]
+
+                ctr["tweet_place"] += 1
+            else:
                 addr_nlp = StreetAddress.nlp(text)
                 addr_re = StreetAddress.re(text)
                 addr_statemap = StreetAddress.statemap(text)
 
-                addr = addr_nlp or addr_re or addr_statemap
-                if addr is None:
+                if addr_nlp is not None:
+                    addr = addr_nlp
+                    source = "address_nlp"
+
+                    ctr["tweet_addr_nlp"] += 1
+                elif addr_re is not None:
+                    addr = addr_re
+                    source = "address_re"
+
+                    ctr["tweet_addr_re"] += 1
+                elif addr_statemap is not None:
+                    addr = addr_statemap
+                    source = "address_statemap"
+
+                    ctr["tweet_addr_statemap"] += 1
+                else:
                     return None
 
                 db_loc = geodb[addr]
                 if db_loc is None:
                     return None
+
+                ctr["tweet_geo_fromaddr"] += 1
 
                 if "geojson" in db_loc:
                     geojson = db_loc["geojson"]
@@ -72,6 +95,21 @@ if __name__ == "__main__":
                 lat = float(db_loc["lat"])
                 lon = float(db_loc["lon"])
 
+            if err is None:
+                ctr["tweet_geo_errna"] += 1
+            elif abs(err) < sys.float_info.epsilon:
+                ctr["tweet_geo_0km"] += 1
+            elif err <= 1.0:
+                ctr["tweet_geo_0to1km"] += 1
+            elif err <= 5.0:
+                ctr["tweet_geo_1to5km"] += 1
+            elif err <= 25.0:
+                ctr["tweet_geo_5to25km"] += 1
+            elif err <= 100.0:
+                ctr["tweet_geo_25to100km"] += 1
+            else:
+                ctr["tweet_geo_gt100km"] += 1
+
             print("Tweet %r (\"%s\") mapped to (%f, %f) with an error of %f km" % (r["id"], text, lat, lon, err))
 
             return {
@@ -79,28 +117,27 @@ if __name__ == "__main__":
                 "latitude": lat,
                 "longitude": lon,
                 "error": err,
+                "source": source,
+                "address": None if addr is None else addr._asdict(),
                 "geojson": geojson
             }
 
-        coll_in = conn["twitter"][sys.argv[1]]
-        coll_out = conn["twitter"][sys.argv[2]]
+        with opencoll(conn, sys.argv[1]) as coll_in, opencoll(conn, sys.argv[2], colltype = "geolocations") as coll_out:
+            results = list(filter(None, map(get_coord_info, coll_in.find())))
 
-        coll_out.create_index([('id', pymongo.HASHED)], name = 'id_index')
-        coll_out.create_index([('geojson', pymongo.GEOSPHERE)], name = 'geojson_index')
+            coll_out.insert_many(results, ordered = False)
 
-        results = list(filter(None, map(get_coord_info, coll_in.find())))
-
-        coll_out.insert_many(results, ordered = False)
-'''
     msg = """
-Results for %s -> %s:
+Results for collecting geolocation info from %s to %s:
 --------------------------------------------------------------------------------
 Total tweets: %d
-Tweets that have geolocation info: %d
+Tweets that have precise geolocation info in their metadata: %d
+Tweets that have a place in their metadata: %d
+--------------------------------------------------------------------------------
 Tweets that have an address in their text: %d
-Tweets whose address was extracted via nlp(): %d
-Tweets whose address was extracted via re(): %d
-Tweets whose address was extracted via statemap(): %d
+* Tweets whose address was extracted via nlp(): %d
+* Tweets whose address was extracted via re(): %d
+* Tweets whose address was extracted via statemap(): %d
 Tweets whose address mapped to a valid geolocation: %d
 --------------------------------------------------------------------------------
 Tweets whose geolocation error is equal to 0 km: %d
@@ -108,10 +145,12 @@ Tweets whose geolocation error is in the range (0 km, 1 km]: %d
 Tweets whose geolocation error is in the range (1 km, 5 km]: %d
 Tweets whose geolocation error is in the range (5 km, 25 km]: %d
 Tweets whose geolocation error is in the range (25 km, 100 km]: %d
-Tweets whose geolocation error is greater than 100 km: %d""" % (
+Tweets whose geolocation error is greater than 100 km: %d
+Tweets whose geolocation error couldn't be calculated: %d""" % (
         sys.argv[1], sys.argv[2],
         ctr["tweet"],
         ctr["tweet_geo"],
+        ctr["tweet_place"],
         ctr["tweet_addr"],
         ctr["tweet_addr_nlp"],
         ctr["tweet_addr_re"],
@@ -122,8 +161,8 @@ Tweets whose geolocation error is greater than 100 km: %d""" % (
         ctr["tweet_geo_1to5km"],
         ctr["tweet_geo_5to25km"],
         ctr["tweet_geo_25to100km"],
-        ctr["tweet_geo_gt100km"]
+        ctr["tweet_geo_gt100km"],
+        ctr["tweet_geo_errna"]
     )
 
     print(msg)
-'''
