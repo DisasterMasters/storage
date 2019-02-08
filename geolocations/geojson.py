@@ -6,6 +6,9 @@ cos_phi = math.sqrt(math.pi / 2)
 sec_phi = math.sqrt(2 / math.pi)
 R_earth = 6371.0
 
+def clamp(x, a, b):
+    return max(min(x, b), a)
+
 # Map latitude and longitude to points on a Smyth cylindrical projection.
 #
 # This needs to be done because an equirectangular projection (i.e. using
@@ -17,7 +20,8 @@ def smyth_map(lat, lon):
 
 # Reverse mapping of smyth_map()
 def smyth_unmap(x, y):
-    return (math.degrees(math.asin(y * (cos_phi / R_earth))), math.degrees(x * (sec_phi / R_earth)))
+    # TODO: Fix domain error here
+    return (math.degrees(math.asin(clamp(y, -1, 1) * (cos_phi / R_earth))), math.degrees(x * (sec_phi / R_earth)))
 
 def geojson_point(coordinates):
     return (coordinates[1], coordinates[0], 0.0)

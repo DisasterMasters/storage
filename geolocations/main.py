@@ -1,10 +1,5 @@
 import collections
-import threading
-import os
 import sys
-import queue
-import enum
-import shelve
 
 import nltk
 import pymongo
@@ -110,7 +105,12 @@ if __name__ == "__main__":
             else:
                 ctr["tweet_geo_gt100km"] += 1
 
-            print("Tweet %r (\"%s\") mapped to (%f, %f) with an error of %f km" % (r["id"], text, lat, lon, err))
+            print("Tweet %r (\"%s\") mapped to (%f, %f) with %s" % (
+                r["id"],
+                text.replace("\n", "\\n"),
+                lat, lon,
+                ("an error of " + str(err) + " km") if err is not None else "an unknown error radius"
+            ))
 
             return {
                 "id": r["id"],
