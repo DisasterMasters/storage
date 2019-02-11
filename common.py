@@ -2,6 +2,7 @@ import contextlib
 import copy
 import datetime
 from email.utils import parsedate_to_datetime
+import os
 import socket
 import time
 import urllib.error
@@ -22,7 +23,14 @@ TWITTER_AUTH.set_access_token(
 )
 
 # Open a default connection
-def openconn(hostname = "da1.eecs.utk.edu" if socket.gethostname() == "75f7e392a7ec" else "localhost"):
+def openconn():
+    if os.environ.get("MONGODB_HOST") is not None:
+        hostname = os.environ.get("MONGODB_HOST")
+    elif socket.gethostname() == "75f7e392a7ec":
+        hostname = "da1.eecs.utk.edu"
+    else:
+        hostname = "localhost"
+
     return contextlib.closing(pymongo.MongoClient(hostname))
 
 # Open a default collection (setting up indices and removing duplicates)

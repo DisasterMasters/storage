@@ -125,7 +125,7 @@ if __name__ == "__main__":
         with opencoll(conn, sys.argv[1]) as coll_in:
             results = list(filter(None, map(get_coord_info, coll_in.find())))
 	
-	with opencoll(conn, sys.argv[2], colltype = "geolocations") as coll_out:
+        with opencoll(conn, sys.argv[2], colltype = "geolocations") as coll_out:
             coll_out.insert_many(results, ordered = False)
 
     msg = """
