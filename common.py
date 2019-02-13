@@ -3,6 +3,7 @@ import copy
 import datetime
 from email.utils import parsedate_to_datetime
 import os
+import re
 import socket
 import time
 import urllib.error
@@ -67,7 +68,7 @@ def opencoll(db, collname, *, cleanup = True):
         ],
         re.compile(r"Geolocations_[a-zA-Z]+"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
-            pymongo.IndexModel([('latitude', pymongo.ASCENDING), ('longitude', pymongo.ASCENDING)], name = 'latitude_longitude_index')
+            pymongo.IndexModel([('latitude', pymongo.ASCENDING), ('longitude', pymongo.ASCENDING)], name = 'latitude_longitude_index'),
             pymongo.IndexModel([('geojson', pymongo.GEOSPHERE)], name = 'geojson_index')
         ],
         re.compile(r"Images_[a-zA-Z]*"): [
@@ -78,7 +79,7 @@ def opencoll(db, collname, *, cleanup = True):
     }
 
     # Set up indices
-    indices = sum((v for k, v in indices_tab if k.fullmatch(collname) is not None), [])
+    indices = sum((v for k, v in indices_tab.items() if k.fullmatch(collname) is not None), [])
 
     if indices:
         coll.create_indexes(indices)

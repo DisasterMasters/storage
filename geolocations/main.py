@@ -30,6 +30,11 @@ if __name__ == "__main__":
 
             if r["coordinates"] is not None:
                 source = "coordinates"
+
+                assert r["coordinates"]["type"] == "Point"
+
+                lat = r["coordinates"]["coordinates"][1]
+                lon = r["coordinates"]["coordinates"][0]
                 geojson = r["coordinates"]
 
                 ctr["tweet_geo"] += 1
@@ -38,8 +43,23 @@ if __name__ == "__main__":
 
                 assert r["place"]["bounding_box"]["type"] == "Polygon"
 
-                geojson = copy.deepcopy(r["place"]["bounding_box"])
-                geojson["coordinates"].append(geojson["coordinates"][0])
+                coords = r["place"]["bounding_box"]["coordinates"][0]
+
+                if all(u == v for u, v in zip(coords, coords[1:] + coords[:1])):
+                    lat = coords[0][1]
+                    lon = coords[0][0]
+
+                    geojson = {
+                        "type": "Point",
+                        "coordinates": [lon, lat]
+                    }
+                else:
+                    lat = sum(v[1] for v in coords) / len(coords)
+                    lon = sum(v[0] for v in coords) / len(coords)
+
+                    geojson = copy.deepcopy(r["place"]["bounding_box"])
+                    if len(geojson["coordinates"][0]) == 4:
+                        geojson["coordinates"][0].append(geojson["coordinates"][0][0])
 
                 ctr["tweet_place"] += 1
             else:
@@ -71,6 +91,9 @@ if __name__ == "__main__":
 
                 ctr["tweet_geo_fromaddr"] += 1
 
+                lat = float(db_loc["lat"])
+                lon = float(db_loc["lon"])
+
                 if "geojson" in db_loc:
                     geojson = db_loc["geojson"]
                 elif "boundingbox" in db_loc:
@@ -87,14 +110,10 @@ if __name__ == "__main__":
                 else:
                     geojson = {
                         "type": "Point",
-                        "coordinates": [float(db_loc["lon"]), float(db_loc["lat"])]
+                        "coordinates": [lon, lat]
                     }
 
-            lat, lon, err = geojson_to_coords(geojson)
-
-            if (lat, lon, err) == (None, None, None):
-                lat = float(db_loc["lat"])
-                lon = float(db_loc["lon"])
+            _, _, err = geojson_to_coords(geojson)
 
             if err is None:
                 ctr["tweet_geo_errna"] += 1
