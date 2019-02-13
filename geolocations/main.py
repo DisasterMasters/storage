@@ -100,11 +100,11 @@ if __name__ == "__main__":
                     geojson = {
                         "type": "Polygon",
                         "coordinates": [[
-                            [float(db_loc["boundingbox"][0]), float(db_loc["boundingbox"][2])],
-                            [float(db_loc["boundingbox"][0]), float(db_loc["boundingbox"][3])],
-                            [float(db_loc["boundingbox"][1]), float(db_loc["boundingbox"][3])],
-                            [float(db_loc["boundingbox"][1]), float(db_loc["boundingbox"][2])],
-                            [float(db_loc["boundingbox"][0]), float(db_loc["boundingbox"][2])]
+                            [float(db_loc["boundingbox"][2]), float(db_loc["boundingbox"][0])],
+                            [float(db_loc["boundingbox"][3]), float(db_loc["boundingbox"][0])],
+                            [float(db_loc["boundingbox"][3]), float(db_loc["boundingbox"][1])],
+                            [float(db_loc["boundingbox"][2]), float(db_loc["boundingbox"][1])],
+                            [float(db_loc["boundingbox"][2]), float(db_loc["boundingbox"][0])]
                         ]]
                     }
                 else:
