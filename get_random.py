@@ -1,6 +1,7 @@
 import contextlib
 import itertools
 import pickle
+import sys
 
 import pandas as pd
 
@@ -12,19 +13,22 @@ COLLNAMES = [
     "Statuses_Florence_A"
 ]
 
+SAMPLE_SIZE = 500
+
 if __name__ == "__main__":
-    try:
-        with open("pandas.pkl", "rb") as fd:
-            df = pickle.load(fd)
-    except FileNotFoundError:
-        with contextlib.ExitStack() as exitstack:
-            conn = exitstack.enter_context(openconn())
-            records = list(itertools.chain.from_iterable(exitstack.enter_context(conn["twitter"][collname].find(no_cursor_timeout = True)) for collname in COLLNAMES))
+    sample = []
+    
+    with openconn() as conn:
+        for collname in COLLNAMES:
+            coll = conn["twitter"][collname]
 
-        df = pd.DataFrame(records)
+            sample.extend(coll.aggregate([{"$sample": {"size": (SAMPLE_SIZE // len(COLLNAMES) + 1)}}]))
 
-        with open("pandas.pkl", "wb") as fd:
-            pickle.dump(df, fd)
+    df = pd.DataFrame(sample)
 
-    print(df.sample(500))
-
+    if len(sys.argv) > 1:
+        with open(sys.argv[1], "w") as fd:
+            df.to_csv(fd, index = False)
+    else:
+        df.to_csv(sys.stdout, index = False)
+      
