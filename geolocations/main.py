@@ -17,7 +17,7 @@ if __name__ == "__main__":
 
     ctr = collections.Counter()
 
-    with GeolocationDB("geolocations.db") as geodb, openconn() as conn:
+    with GeolocationDB("geolocations.db") as geodb:
         def get_coord_info(r):
             addr = None
 
@@ -128,7 +128,7 @@ if __name__ == "__main__":
                 "geojson": geojson
             }
 
-        with opencoll(conn, sys.argv[1]) as coll_in, opencoll(conn, sys.argv[2], colltype = "geolocations") as coll_out:
+        with opendb() as db, opencoll(db, sys.argv[1]) as coll_in, opencoll(db, sys.argv[2]) as coll_out:
             for r in coll_in.find():
                 r = get_coord_info(r)
 
