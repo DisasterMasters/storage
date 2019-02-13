@@ -39,7 +39,7 @@ def opendb(hostname = None, dbname = "twitter"):
 
 # Open a default collection (setting up indices and removing duplicates)
 @contextlib.contextmanager
-def opencoll(db, collname, *, cleanup = True):
+def opencoll(db, collname):
     coll = db[collname]
 
     indices_tab = {
@@ -52,7 +52,8 @@ def opencoll(db, collname, *, cleanup = True):
             pymongo.IndexModel([('user.id', pymongo.HASHED)], name = 'user_id_index'),
             pymongo.IndexModel([('user.screen_name', pymongo.HASHED)], name = 'user_screen_name_index'),
             pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english'),
-            pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index')
+            pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
+            pymongo.IndexModel([('retrieved_at', pymongo.ASCENDING)], name = 'retrieved_at_index')
         ],
         re.compile(r"(Labeled)?Statuses_[a-zA-Z]+_C"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index', sparse = True),
@@ -64,7 +65,8 @@ def opencoll(db, collname, *, cleanup = True):
             pymongo.IndexModel([('id', pymongo.ASCENDING)], name = 'id_ordered_index'),
             pymongo.IndexModel([('screen_name', pymongo.HASHED)], name = 'screen_name_index'),
             pymongo.IndexModel([('description', pymongo.TEXT)], name = 'description_index'),
-            pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index')
+            pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
+            pymongo.IndexModel([('retrieved_at', pymongo.ASCENDING)], name = 'retrieved_at_index')
         ],
         re.compile(r"Geolocations_[a-zA-Z]+"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
@@ -84,14 +86,19 @@ def opencoll(db, collname, *, cleanup = True):
     if indices:
         coll.create_indexes(indices)
 
+    index_names = {i["name"] for i in coll.list_indexes()}
+
     yield coll
 
     # Remove duplicates
-    if colltype is not None and cleanup:
+    if "id_index" in index_names:
         dups = []
         ids = set()
 
         with contextlib.closing(coll.find(projection = ["id"], no_cursor_timeout = True)) as cursor:
+            if "retrieved_at_index" in index_names:
+                cursor = cursor.sort("retrieved_at", direction = pymongo.DESCENDING)
+
             for r in cursor:
                 if 'id' in r:
                     if r['id'] in ids:
