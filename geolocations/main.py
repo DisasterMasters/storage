@@ -16,7 +16,7 @@ if __name__ == "__main__":
 
     ctr = collections.Counter()
 
-    with GeolocationDB("geolocations") as geodb, openconn() as conn:
+    with GeolocationDB("geolocations.db") as geodb, openconn() as conn:
         def get_coord_info(r):
             addr = None
 
@@ -122,11 +122,12 @@ if __name__ == "__main__":
                 "geojson": geojson
             }
 
-        with opencoll(conn, sys.argv[1]) as coll_in:
-            results = list(filter(None, map(get_coord_info, coll_in.find())))
-	
-        with opencoll(conn, sys.argv[2], colltype = "geolocations") as coll_out:
-            coll_out.insert_many(results, ordered = False)
+        with opencoll(conn, sys.argv[1]) as coll_in, opencoll(conn, sys.argv[2], colltype = "geolocations") as coll_out:
+            for r in coll_in.find():
+                r = get_coord_info(r)
+
+                if r is not None:
+                    coll_out.insert_one(r)
 
     msg = """
 Results for collecting geolocation info from %s to %s:
