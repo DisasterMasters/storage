@@ -1,3 +1,4 @@
+import copy
 import collections
 import sys
 
@@ -34,7 +35,11 @@ if __name__ == "__main__":
                 ctr["tweet_geo"] += 1
             elif r["place"] is not None:
                 source = "place"
-                geojson = r["place"]["bounding_box"]
+
+                assert r["place"]["bounding_box"]["type"] == "Polygon"
+
+                geojson = copy.deepcopy(r["place"]["bounding_box"])
+                geojson["coordinates"].append(geojson["coordinates"][0])
 
                 ctr["tweet_place"] += 1
             else:
@@ -75,7 +80,8 @@ if __name__ == "__main__":
                             [float(db_loc["boundingbox"][0]), float(db_loc["boundingbox"][2])],
                             [float(db_loc["boundingbox"][0]), float(db_loc["boundingbox"][3])],
                             [float(db_loc["boundingbox"][1]), float(db_loc["boundingbox"][3])],
-                            [float(db_loc["boundingbox"][1]), float(db_loc["boundingbox"][2])]
+                            [float(db_loc["boundingbox"][1]), float(db_loc["boundingbox"][2])],
+                            [float(db_loc["boundingbox"][0]), float(db_loc["boundingbox"][2])]
                         ]]
                     }
                 else:

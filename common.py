@@ -23,48 +23,54 @@ TWITTER_AUTH.set_access_token(
 )
 
 # Open a default connection
-def openconn():
-    if os.environ.get("MONGODB_HOST") is not None:
-        hostname = os.environ.get("MONGODB_HOST")
-    elif socket.gethostname() == "75f7e392a7ec":
-        hostname = "da1.eecs.utk.edu"
-    else:
-        hostname = "localhost"
+@contextlib.contextmanager
+def opendb(hostname = None, dbname = "twitter"):
+    if hostname is None:
+        if os.environ.get("MONGODB_HOST") is not None:
+            hostname = os.environ.get("MONGODB_HOST")
+        elif socket.gethostname() == "75f7e392a7ec":
+            hostname = "da1.eecs.utk.edu"
+        else:
+            hostname = "localhost"
 
-    return contextlib.closing(pymongo.MongoClient(hostname))
+    with contextlib.closing(pymongo.MongoClient(hostname)) as conn:
+        yield conn[dbname]
 
 # Open a default collection (setting up indices and removing duplicates)
 @contextlib.contextmanager
-def opencoll(conn, collname, *, colltype = "statuses_a", dbname = "twitter", cleanup = True):
-    coll = conn[dbname][collname]
+def opencoll(db, collname, *, cleanup = True):
+    coll = db[collname]
 
-    indices = {
-        "statuses_a": [
+    indices_tab = {
+        re.compile(r"Labeled\w*"): [
+            pymongo.IndexModel([('tags', pymongo.ASCENDING)], name = 'tags_index')
+        ],
+        re.compile(r"(Labeled)?Statuses_[a-zA-Z]+_A"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
-            # pymongo.IndexModel([('id', pymongo.ASCENDING)], name = 'id_ordered_index', unique = True),
+            pymongo.IndexModel([('id', pymongo.ASCENDING)], name = 'id_ordered_index', unique = True),
             pymongo.IndexModel([('user.id', pymongo.HASHED)], name = 'user_id_index'),
             pymongo.IndexModel([('user.screen_name', pymongo.HASHED)], name = 'user_screen_name_index'),
             pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english'),
-            pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
-            pymongo.IndexModel([('tags', pymongo.ASCENDING)], name = 'tags_index', sparse = True)
+            pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index')
         ],
-        "statuses_c": [
+        re.compile(r"(Labeled)?Statuses_[a-zA-Z]+_C"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index', sparse = True),
-            pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english', sparse = True),
-            pymongo.IndexModel([('tags', pymongo.ASCENDING)], name = 'tags_index', sparse = True)
+            pymongo.IndexModel([('id', pymongo.ASCENDING)], name = 'id_ordered_index', sparse = True),
+            pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english', sparse = True)
         ],
-        "users": [
+        re.compile(r"Users_[a-zA-Z]+"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
+            pymongo.IndexModel([('id', pymongo.ASCENDING)], name = 'id_ordered_index'),
             pymongo.IndexModel([('screen_name', pymongo.HASHED)], name = 'screen_name_index'),
             pymongo.IndexModel([('description', pymongo.TEXT)], name = 'description_index'),
-            pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
-            #pymongo.IndexModel([('categories', pymongo.ASCENDING)], name = 'categories_index', sparse = True)
+            pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index')
         ],
-        "geolocations": [
+        re.compile(r"Geolocations_[a-zA-Z]+"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
+            pymongo.IndexModel([('latitude', pymongo.ASCENDING), ('longitude', pymongo.ASCENDING)], name = 'latitude_longitude_index')
             pymongo.IndexModel([('geojson', pymongo.GEOSPHERE)], name = 'geojson_index')
         ],
-        "images": [
+        re.compile(r"Images_[a-zA-Z]*"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index')
             # pymongo.IndexModel([('md5sum', pymongo.HASHED)], name = 'md5sum_index'),
             # pymongo.IndexModel([('sha1sum', pymongo.HASHED)], name = 'sha1sum_index'),
@@ -72,8 +78,10 @@ def opencoll(conn, collname, *, colltype = "statuses_a", dbname = "twitter", cle
     }
 
     # Set up indices
-    if colltype is not None:
-        coll.create_indexes(indices[colltype])
+    indices = sum((v for k, v in indices_tab if k.fullmatch(collname) is not None), [])
+
+    if indices:
+        coll.create_indexes(indices)
 
     yield coll
 
