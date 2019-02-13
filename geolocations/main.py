@@ -17,7 +17,7 @@ if __name__ == "__main__":
 
     ctr = collections.Counter()
 
-    with GeolocationDB("geolocations.db") as geodb:
+    with GeolocationDB("geolocations") as geodb:
         def get_coord_info(r):
             addr = None
 
