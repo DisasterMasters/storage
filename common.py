@@ -6,7 +6,7 @@ import os
 import re
 import socket
 import time
-import urllib.error
+from urllib.error import HTTPError
 from urllib.request import urlopen
 from urllib.parse import urlencode
 
@@ -34,21 +34,23 @@ def opendb(hostname = None, dbname = "twitter"):
         else:
             hostname = "localhost"
 
-    with contextlib.closing(pymongo.MongoClient(hostname)) as conn:
-        yield conn[dbname]
+    conn = pymongo.MongoClient(hostname)
+
+    yield conn[dbname]
+
+    conn.close()
 
 # Open a default collection (setting up indices and removing duplicates)
 @contextlib.contextmanager
 def opencoll(db, collname):
     coll = db[collname]
 
-    indices_tab = {
+    index_tab = {
         re.compile(r"Labeled\w*"): [
             pymongo.IndexModel([('tags', pymongo.ASCENDING)], name = 'tags_index')
         ],
         re.compile(r"(Labeled)?Statuses_[a-zA-Z]+_A"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
-            pymongo.IndexModel([('id', pymongo.ASCENDING)], name = 'id_ordered_index', unique = True),
             pymongo.IndexModel([('user.id', pymongo.HASHED)], name = 'user_id_index'),
             pymongo.IndexModel([('user.screen_name', pymongo.HASHED)], name = 'user_screen_name_index'),
             pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english'),
@@ -57,12 +59,10 @@ def opencoll(db, collname):
         ],
         re.compile(r"(Labeled)?Statuses_[a-zA-Z]+_C"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index', sparse = True),
-            pymongo.IndexModel([('id', pymongo.ASCENDING)], name = 'id_ordered_index', sparse = True),
             pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english', sparse = True)
         ],
         re.compile(r"Users_[a-zA-Z]+"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
-            pymongo.IndexModel([('id', pymongo.ASCENDING)], name = 'id_ordered_index'),
             pymongo.IndexModel([('screen_name', pymongo.HASHED)], name = 'screen_name_index'),
             pymongo.IndexModel([('description', pymongo.TEXT)], name = 'description_index'),
             pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
@@ -73,7 +73,7 @@ def opencoll(db, collname):
             pymongo.IndexModel([('latitude', pymongo.ASCENDING), ('longitude', pymongo.ASCENDING)], name = 'latitude_longitude_index'),
             pymongo.IndexModel([('geojson', pymongo.GEOSPHERE)], name = 'geojson_index')
         ],
-        re.compile(r"Images_[a-zA-Z]*"): [
+        re.compile(r"Images_[a-zA-Z]+"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index')
             # pymongo.IndexModel([('md5sum', pymongo.HASHED)], name = 'md5sum_index'),
             # pymongo.IndexModel([('sha1sum', pymongo.HASHED)], name = 'sha1sum_index'),
@@ -81,7 +81,7 @@ def opencoll(db, collname):
     }
 
     # Set up indices
-    indices = sum((v for k, v in indices_tab.items() if k.fullmatch(collname) is not None), [])
+    indices = sum((v for k, v in index_tab.items() if k.fullmatch(collname) is not None), [])
 
     if indices:
         coll.create_indexes(indices)
@@ -108,7 +108,6 @@ def opencoll(db, collname):
 
         for i in range(0, len(dups), 800000):
             coll.delete_many({"_id": {"$in": dups[i:i + 800000]}})
-
 
 # Convert tweets obtained with extended REST API to a format similar to the
 # compatibility mode used by the streaming API
@@ -146,8 +145,8 @@ def statusconv(status, status_permalink = None):
                     with urlopen('http://tinyurl.com/api-create.php?' + urlencode({'url': long_url})) as response:
                         short_url = response.read().decode()
                     break
-                except urllib.error.HTTPError:
-                    time.sleep(15)
+                except HTTPError:
+                    time.sleep(5)
 
             status_permalink = {
                 "url": short_url,

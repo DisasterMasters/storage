@@ -10,15 +10,15 @@ from common import *
 from oldtweets import OldKeywordThread, OldUsernameThread
 from newtweets import NewKeywordThread, NewUsernameThread
 
-def put_statuses_into_collection(coll, qu):
-    def print_status(status):
-        print("\"%s\" -- @%s, %s (retrieved %s)" % (
-            status["text"],
-            status["user"]["screen_name"],
-            format_datetime(status["created_at"]),
-            format_datetime(status["retrieved_at"])
-        ))
+def print_status(status):
+    print("\"%s\" -- @%s, %s (retrieved %s)" % (
+        status["text"],
+        status["user"]["screen_name"],
+        format_datetime(status["created_at"]),
+        format_datetime(status["retrieved_at"])
+    ))
 
+def put_statuses_into_collection(coll, qu):
     while True:
         status = qu.get()
 
@@ -27,7 +27,7 @@ def put_statuses_into_collection(coll, qu):
             break
         elif type(status) is list and type(status[0]) is dict:
             # For debugging
-            print("\033[1m\033[31mGot some old tweets\033[0m (New max_id %d)" % min(r["id"] for r in status))
+            print("\033[1m\033[31mGot some old tweets\033[0m")
 
             for r in status:
                 print_status(r)
@@ -83,7 +83,7 @@ if __name__ == "__main__":
         pool.append(NewUsernameThread(new_usernames, qu, ev))
         pool[-1].start()
 
-    with openconn() as conn, opencoll(conn, opts["COLLNAME"]) as coll:
+    with opendb() as db, opencoll(db, opts["COLLNAME"]) as coll:
         put_statuses_into_collection(coll, qu)
 
         for thrd in pool:
