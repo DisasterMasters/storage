@@ -22,7 +22,7 @@ if __name__ == "__main__":
 
             uid_set.update(uid_list)
 
-            if uid in uids:
+            for uid in uid_list:
                 if uid in uid_set:
                     continue
 
