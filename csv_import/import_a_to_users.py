@@ -12,16 +12,16 @@ if __name__ == "__main__":
 
     api = tweepy.API(TWITTER_AUTH, parser = tweepy.parsers.JSONParser())
 
-    uid_set = set()
+    accessed_uids = set()
 
     with opendb() as db, opencoll(db, sys.argv[1]) as coll_from, opencoll(db, sys.argv[2]) as coll_to:
         for r0 in coll_from.find(projection = ["user.id", "entities.user_mentions", "extended_tweet.entities.user_mentions"]):
-            uid_list = [r0["user"]["id"]] + \
-                       [user_mention["id"] for user_mention in r0["entities"]["user_mentions"]] + \
-                       [user_mention["id"] for user_mention in r0["extended_tweet"]["entities"]["user_mentions"]]
+            uids = {r0["user"]["id"]} + \
+                       {user_mention["id"] for user_mention in r0["entities"]["user_mentions"]} + \
+                       {user_mention["id"] for user_mention in r0["extended_tweet"]["entities"]["user_mentions"]}
 
-            for uid in uid_list:
-                if uid in uid_set:
+            for uid in uids:
+                if uid in accessed_uids:
                     continue
 
                 try:
@@ -48,4 +48,4 @@ if __name__ == "__main__":
 
                 coll_to.insert_one(r)
 
-            uid_set.update(uid_list)
+            accessed_uids |= uids
