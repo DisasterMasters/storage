@@ -49,8 +49,6 @@ def read_csv(filename, api, api_mut, coll, coll_mut):
                 if "status" in r:
                     r["status"]["created_at"] = parsedate_to_datetime(r["status"]["created_at"])
 
-                r["original_file"] = filename
-
                 records.append(r)
     finally:
         os.close(fileno)
