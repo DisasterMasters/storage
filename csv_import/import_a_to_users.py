@@ -39,7 +39,7 @@ if __name__ == "__main__":
                     continue
 
                 r["retrieved_at"] = retrieved_at
-                r["created_at"] = parsedate_to_datetime(user["created_at"])
+                r["created_at"] = parsedate_to_datetime(r["created_at"])
 
                 if "status" in r:
                     r["status"]["created_at"] = parsedate_to_datetime(r["status"]["created_at"])
