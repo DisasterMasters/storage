@@ -20,7 +20,7 @@ if __name__ == "__main__":
                        [user_mention["id"] for user_mention in r0["entities"]["user_mentions"]] + \
                        [user_mention["id"] for user_mention in r0["extended_tweet"]["entities"]["user_mentions"]]
 
-            uid_set.extend(uid_list)
+            uid_set.update(uid_list)
 
             if uid in uids:
                 if uid in uid_set:
