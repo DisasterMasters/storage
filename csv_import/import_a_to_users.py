@@ -20,8 +20,6 @@ if __name__ == "__main__":
                        [user_mention["id"] for user_mention in r0["entities"]["user_mentions"]] + \
                        [user_mention["id"] for user_mention in r0["extended_tweet"]["entities"]["user_mentions"]]
 
-            uid_set.update(uid_list)
-
             for uid in uid_list:
                 if uid in uid_set:
                     continue
@@ -49,3 +47,5 @@ if __name__ == "__main__":
                 print("%s -- \"%s\"" % (r["screen_name"], r["description"]))
 
                 coll_to.insert_one(r)
+
+            uid_set.update(uid_list)
