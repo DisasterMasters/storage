@@ -16,8 +16,8 @@ if __name__ == "__main__":
 
     with opendb() as db, opencoll(db, sys.argv[1]) as coll_from, opencoll(db, sys.argv[2]) as coll_to:
         for r0 in coll_from.find(projection = ["user.id", "entities.user_mentions", "extended_tweet.entities.user_mentions"]):
-            uids = {r0["user"]["id"]} + \
-                       {user_mention["id"] for user_mention in r0["entities"]["user_mentions"]} + \
+            uids = {r0["user"]["id"]} | \
+                       {user_mention["id"] for user_mention in r0["entities"]["user_mentions"]} | \
                        {user_mention["id"] for user_mention in r0["extended_tweet"]["entities"]["user_mentions"]}
 
             for uid in uids:
