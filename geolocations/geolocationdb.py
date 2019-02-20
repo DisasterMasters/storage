@@ -62,7 +62,7 @@ class GeolocationDB:
                 self.dt = dt
 
                 try:
-                    request = self.api.geocode(query, geometry = "geojson")
+                    request = self.api.geocode(dbquery, geometry = "geojson")
                 except geopy.exc.GeopyError:
                     return None
 
