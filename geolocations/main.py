@@ -76,7 +76,10 @@ if __name__ == "__main__":
             coll_users = exitstack.enter_context(opencoll(db, sys.argv[2]))
             coll_out = exitstack.enter_context(opencoll(db, sys.argv[3]))
 
-            for status in coll_statuses.find():
+            cursor = coll_statuses.find(no_cursor_timeout = True)
+            cursor = exitstack.enter_context(contextlib.closing(cursor))
+
+            for status in cursor:
                 user = coll_users.find_one({"id": status["user"]["id"]})
 
                 r = get_coord_info(status, user)
