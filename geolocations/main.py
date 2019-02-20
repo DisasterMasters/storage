@@ -1,3 +1,4 @@
+import contextlib
 import copy
 import collections
 import sys
@@ -6,150 +7,79 @@ import nltk
 import pymongo
 
 from common import *
-from geocode import GeolocationDB
-from geojson import geojson_to_coords
-from address import StreetAddress
+from geolocationdb import GeolocationDB
+from geocodemethods import *
+from error import geojson_error
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage:", sys.argv[0], "<input collection> <output collection>", file = sys.stderr)
+    if len(sys.argv) != 4:
+        print("Usage:", sys.argv[0], "<statuses collection> <users collection> <output collection>", file = sys.stderr)
         exit(-1)
 
     ctr = collections.Counter()
 
-    with GeolocationDB("geolocations") as geodb:
-        def get_coord_info(r):
-            addr = None
+    with GeolocationDB("geolocations.db") as geodb:
+        def get_coord_info(status, user):
+            methods = [
+                status_coordinates,
+                status_place,
+                status_streetaddress_nlp,
+                status_streetaddress_re,
+                status_streetaddress_statemap,
+                user_place,
+                user_streetaddress_nlp,
+                user_streetaddress_re,
+                user_streetaddress_statemap
+            ]
 
-            ctr["tweet"] += 1
+            for method_f in methods:
+                r = method_f(status, user, geodb)
 
-            try:
-                text = r["extended_tweet"]["full_text"]
-            except KeyError:
-                text = r["text"]
-
-            if r["coordinates"] is not None:
-                source = "coordinates"
-
-                assert r["coordinates"]["type"] == "Point"
-
-                lat = r["coordinates"]["coordinates"][1]
-                lon = r["coordinates"]["coordinates"][0]
-                geojson = r["coordinates"]
-
-                ctr["tweet_geo"] += 1
-            elif r["place"] is not None:
-                source = "place"
-
-                assert r["place"]["bounding_box"]["type"] == "Polygon"
-
-                coords = r["place"]["bounding_box"]["coordinates"][0]
-
-                if all(u == v for u, v in zip(coords, coords[1:] + coords[:1])):
-                    lat = coords[0][1]
-                    lon = coords[0][0]
-
-                    geojson = {
-                        "type": "Point",
-                        "coordinates": [lon, lat]
-                    }
-                else:
-                    lat = sum(v[1] for v in coords) / len(coords)
-                    lon = sum(v[0] for v in coords) / len(coords)
-
-                    geojson = copy.deepcopy(r["place"]["bounding_box"])
-                    if len(geojson["coordinates"][0]) == 4:
-                        geojson["coordinates"][0].append(geojson["coordinates"][0][0])
-
-                ctr["tweet_place"] += 1
+                if r is not None:
+                    ctr["tweet_" + r["source"]] += 1
+                    break
             else:
-                addr_nlp = StreetAddress.nlp(text)
-                addr_re = StreetAddress.re(text)
-                addr_statemap = StreetAddress.statemap(text)
+                return None
 
-                if addr_nlp is not None:
-                    addr = addr_nlp
-                    source = "address_nlp"
+            r["id"] = status["id"]
+            r["error"] = geojson_error(r["latitude"], r["longitude"], r["geojson"])
+            r["retrieved_at"] = datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc)
 
-                    ctr["tweet_addr_nlp"] += 1
-                elif addr_re is not None:
-                    addr = addr_re
-                    source = "address_re"
-
-                    ctr["tweet_addr_re"] += 1
-                elif addr_statemap is not None:
-                    addr = addr_statemap
-                    source = "address_statemap"
-
-                    ctr["tweet_addr_statemap"] += 1
-                else:
-                    return None
-
-                db_loc = geodb[addr]
-                if db_loc is None:
-                    return None
-
-                ctr["tweet_geo_fromaddr"] += 1
-
-                lat = float(db_loc["lat"])
-                lon = float(db_loc["lon"])
-
-                if "geojson" in db_loc:
-                    geojson = db_loc["geojson"]
-                elif "boundingbox" in db_loc:
-                    geojson = {
-                        "type": "Polygon",
-                        "coordinates": [[
-                            [float(db_loc["boundingbox"][2]), float(db_loc["boundingbox"][0])],
-                            [float(db_loc["boundingbox"][3]), float(db_loc["boundingbox"][0])],
-                            [float(db_loc["boundingbox"][3]), float(db_loc["boundingbox"][1])],
-                            [float(db_loc["boundingbox"][2]), float(db_loc["boundingbox"][1])],
-                            [float(db_loc["boundingbox"][2]), float(db_loc["boundingbox"][0])]
-                        ]]
-                    }
-                else:
-                    geojson = {
-                        "type": "Point",
-                        "coordinates": [lon, lat]
-                    }
-
-            _, _, err = geojson_to_coords(geojson)
-
-            if err is None:
+            if r["error"] is None:
                 ctr["tweet_geo_errna"] += 1
-            elif abs(err) < sys.float_info.epsilon:
+            elif abs(r["error"]) < sys.float_info.epsilon:
                 ctr["tweet_geo_0km"] += 1
-            elif err <= 1.0:
+            elif r["error"] <= 1.0:
                 ctr["tweet_geo_0to1km"] += 1
-            elif err <= 5.0:
+            elif r["error"] <= 5.0:
                 ctr["tweet_geo_1to5km"] += 1
-            elif err <= 25.0:
+            elif r["error"] <= 25.0:
                 ctr["tweet_geo_5to25km"] += 1
-            elif err <= 100.0:
+            elif r["error"] <= 100.0:
                 ctr["tweet_geo_25to100km"] += 1
             else:
                 ctr["tweet_geo_gt100km"] += 1
 
-            print("Tweet %r (\"%s\") mapped to (%f, %f) with %s" % (
+            print("Tweet %r (\"%s\") mapped to (%f, %f) via %s with %s" % (
                 r["id"],
-                text.replace("\n", "\\n"),
-                lat, lon,
-                ("an error of " + str(err) + " km") if err is not None else "an unknown error radius"
+                status["text"].replace("\n", "\\n"),
+                r["latitude"], r["longitude"],
+                r["source"],
+                ("an error of " + str(r["error"]) + " km") if r["error"] is not None else "an unknown error radius"
             ))
 
-            return {
-                "id": r["id"],
-                "latitude": lat,
-                "longitude": lon,
-                "error": err,
-                "source": source,
-                "address": None if addr is None else addr._asdict(),
-                "geojson": geojson
-            }
+            return r
 
-        with opendb() as db, opencoll(db, sys.argv[1]) as coll_in, opencoll(db, sys.argv[2]) as coll_out:
-            for r in coll_in.find():
-                r = get_coord_info(r)
+        with contextlib.ExitStack() as exitstack:
+            db = exitstack.enter_context(opendb())
+            coll_statuses = exitstack.enter_context(opencoll(db, sys.argv[1]))
+            coll_users = exitstack.enter_context(opencoll(db, sys.argv[2]))
+            coll_out = exitstack.enter_context(opencoll(db, sys.argv[3]))
+
+            for status in coll_statuses.find():
+                user = coll_users.find_one({"id": status["user"]["id"]})
+
+                r = get_coord_info(status, user)
 
                 if r is not None:
                     coll_out.insert_one(r)
@@ -158,14 +88,18 @@ if __name__ == "__main__":
 Results for collecting geolocation info from %s to %s:
 --------------------------------------------------------------------------------
 Total tweets: %d
-Tweets that have precise geolocation info in their metadata: %d
-Tweets that have a place in their metadata: %d
 --------------------------------------------------------------------------------
 Tweets that have an address in their text: %d
 * Tweets whose address was extracted via nlp(): %d
 * Tweets whose address was extracted via re(): %d
 * Tweets whose address was extracted via statemap(): %d
-Tweets whose address mapped to a valid geolocation: %d
+Tweets whose users have an address in their text: %d
+* Users whose address was extracted via nlp(): %d
+* Users whose address was extracted via re(): %d
+* Users whose address was extracted via statemap(): %d
+Tweets with a non-empty "coordinates" field: %d
+Tweets with a non-empty "place" field: %d
+Tweets whose users have a non-empty "place" field: %d
 --------------------------------------------------------------------------------
 Tweets whose geolocation error is equal to 0 km: %d
 Tweets whose geolocation error is in the range (0 km, 1 km]: %d

@@ -2,60 +2,10 @@ import copy
 import statistics
 import sys
 
-import nltk
-import pymongo
-
 from common import *
-from geocode import GeolocationDB
-from geojson import geojson_to_coords
-from address import StreetAddress
+from streetaddress import StreetAddress
 
-def __place(place, geodb):
-    if place is None:
-        return None
-
-    if place["bounding_box"] is not None:
-        assert place["bounding_box"]["type"] == "Polygon"
-
-        coords = place["bounding_box"]["coordinates"][0]
-
-        if all(u == v for u, v in zip(coords, coords[1:] + coords[:1])):
-            lat = coords[0][1]
-            lon = coords[0][0]
-
-            geojson = {
-                "type": "Point",
-                "coordinates": [lon, lat]
-            }
-        else:
-            lat = statistics.mean(v[1] for v in coords)
-            lon = statistics.mean(v[0] for v in coords)
-
-            geojson = copy.deepcopy(place["bounding_box"])
-
-            if len(geojson["coordinates"][0]) == 4:
-                geojson["coordinates"][0].append(geojson["coordinates"][0][0])
-    else if place["name"] is not None:
-        tup = geodb[place["name"]]
-
-        if tup is None:
-            return None
-
-        lat, lon, geojson = tup
-    else:
-        return None
-
-    return (lat, lon, geojson)
-
-def __streetaddress(text, geodb, addr_f):
-    addr = addr_f(text)
-    if addr is None:
-        return None
-
-    db_loc = geodb[addr]
-    if db_loc is None:
-        return None
-
+def __geolocationdb_process(db_loc):
     lat = float(db_loc["lat"])
     lon = float(db_loc["lon"])
 
@@ -80,66 +30,134 @@ def __streetaddress(text, geodb, addr_f):
 
     return (lat, lon, geojson)
 
-def status_coordinates(status):
-    if r["coordinates"] is None:
+def __place(place, geodb, source):
+    if place is None:
         return None
 
-    assert r["coordinates"]["type"] == "Point"
+    if place["bounding_box"] is not None:
+        assert place["bounding_box"]["type"] == "Polygon"
 
-    lat = r["coordinates"]["coordinates"][1]
-    lon = r["coordinates"]["coordinates"][0]
-    geojson = r["coordinates"]
+        coords = place["bounding_box"]["coordinates"][0]
 
-    return (lat, lon, geojson)
+        if all(u == v for u, v in zip(coords, coords[1:] + coords[:1])):
+            lat = coords[0][1]
+            lon = coords[0][0]
 
-def status_place(status, geodb):
-    return __place(status["place"], geodb)
+            geojson = {
+                "type": "Point",
+                "coordinates": [lon, lat]
+            }
+        else:
+            lat = statistics.mean(v[1] for v in coords)
+            lon = statistics.mean(v[0] for v in coords)
 
-def status_streetaddress_nlp(status, geodb):
+            geojson = copy.deepcopy(place["bounding_box"])
+
+            if len(geojson["coordinates"][0]) == 4:
+                geojson["coordinates"][0].append(geojson["coordinates"][0][0])
+    elif place["name"] is not None:
+        db_loc = geodb[place["name"]]
+
+        if db_loc is None:
+            return None
+
+        lat, lon, geojson = __geolocationdb_process(db_loc)
+    else:
+        return None
+
+    return {
+        "latitude": lat,
+        "longitude": lon,
+        "geojson": geojson,
+        "source": source,
+        "address": None
+    }
+
+def __streetaddress(text, geodb, source, addr_f):
+    addr = addr_f(text)
+    if addr is None:
+        return None
+
+    db_loc = geodb[addr]
+    if db_loc is None:
+        return None
+
+    lat, lon, geojson = __geolocationdb_process(db_loc)
+
+    return {
+        "latitude": lat,
+        "longitude": lon,
+        "geojson": geojson,
+        "source": source,
+        "address": addr._asdict()
+    }
+
+def status_coordinates(status, user, geodb):
+    if status["coordinates"] is None:
+        return None
+
+    assert status["coordinates"]["type"] == "Point"
+
+    lat = status["coordinates"]["coordinates"][1]
+    lon = status["coordinates"]["coordinates"][0]
+    geojson = status["coordinates"]
+
+    return {
+        "latitude": lat,
+        "longitude": lon,
+        "geojson": geojson,
+        "source": "status_coordinates",
+        "address": None
+    }
+
+def status_place(status, user, geodb):
+    return __place(status["place"], geodb, "user_place")
+
+def status_streetaddress_nlp(status, user, geodb):
     try:
-        text = r["extended_tweet"]["full_text"]
+        text = status["extended_tweet"]["full_text"]
     except KeyError:
-        text = r["text"]
+        text = status["text"]
 
-    return __status_streetaddress(text, geodb, StreetAddress.nlp)
+    return __streetaddress(text, geodb, "status_streetaddress_nlp", StreetAddress.nlp)
 
-def status_streetaddress_re(status, geodb):
+def status_streetaddress_re(status, user, geodb):
     try:
-        text = r["extended_tweet"]["full_text"]
+        text = status["extended_tweet"]["full_text"]
     except KeyError:
-        text = r["text"]
+        text = status["text"]
 
-    return __status_streetaddress(text, geodb, StreetAddress.re)
+    return __streetaddress(text, geodb, "status_streetaddress_re", StreetAddress.re)
 
-def status_streetaddress_statemap(status, geodb):
+def status_streetaddress_statemap(status, user, geodb):
     try:
-        text = r["extended_tweet"]["full_text"]
+        text = status["extended_tweet"]["full_text"]
     except KeyError:
-        text = r["text"]
+        text = status["text"]
 
-    return __status_streetaddress(text, geodb, StreetAddress.statemap)
+    return __streetaddress(text, geodb, "status_streetaddress_statemap", StreetAddress.statemap)
 
-def user_place(user, geodb):
+def user_place(status, user, geodb):
     if user is None:
         return None
 
-    return __place(user["profile_location"], geodb)
+    return __place(user["profile_location"], geodb, "user_place")
 
-def user_streetaddress_nlp(user, geodb):
+def user_streetaddress_nlp(status, user, geodb):
     if user is None:
         return None
 
-    return __status_streetaddress(user["description"], geodb, StreetAddress.nlp)
+    return __streetaddress(user["description"], geodb, "user_streetaddress_nlp", StreetAddress.nlp)
 
-def user_streetaddress_re(user, geodb):
+def user_streetaddress_re(status, user, geodb):
     if user is None:
         return None
 
-    return __status_streetaddress(user["description"], geodb, StreetAddress.re)
+    return __streetaddress(user["description"], geodb, "user_streetaddress_re", StreetAddress.re)
 
-def user_streetaddress_statemap(user, geodb):
+def user_streetaddress_statemap(status, user, geodb):
     if user is None:
         return None
 
-    return __status_streetaddress(user["description"], geodb, StreetAddress.statemap)
+    return __streetaddress(user["description"], geodb, "user_streetaddress_statemap", StreetAddress.statemap)
 

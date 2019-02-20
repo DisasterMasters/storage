@@ -29,8 +29,8 @@ if __name__ == "__main__":
 
         for r0 in cursor:
             uids = {r0["user"]["id"]} | \
-                       {user_mention["id"] for user_mention in r0["entities"]["user_mentions"]} | \
-                       {user_mention["id"] for user_mention in r0["extended_tweet"]["entities"]["user_mentions"]}
+                   {user_mention["id"] for user_mention in r0["entities"]["user_mentions"]} | \
+                   {user_mention["id"] for user_mention in r0["extended_tweet"]["entities"]["user_mentions"]}
 
             for uid in uids:
                 if uid in accessed_uids:
