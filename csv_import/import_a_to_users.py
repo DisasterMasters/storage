@@ -18,7 +18,7 @@ if __name__ == "__main__":
     with contextlib.ExitStack() as exitstack:
         db =  exitstack.enter_context(opendb())
         coll_from = exitstack.enter_context(opencoll(db, sys.argv[1]))
-        coll_to = exitstack.enter_context(opencoll(db, sys.argv[3]))
+        coll_to = exitstack.enter_context(opencoll(db, sys.argv[2]))
 
         cursor = coll_from.find(
             projection = ["user.id", "entities.user_mentions", "extended_tweet.entities.user_mentions"],
