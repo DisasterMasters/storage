@@ -25,13 +25,15 @@ def __linestring(coordinates):
     return [smyth_map(lat, lon) for [lon, lat] in coordinates]
 
 def __multilinestring(coordinates):
-    return [smyth_map(lat, lon) for [lon, lat] in line for line in coordinates]
+    all_lines = sum(coordinates, [])
+    return [smyth_map(lat, lon) for [lon, lat] in all_lines]
 
 def __polygon(coordinates):
     return [smyth_map(lat, lon) for [lon, lat] in coordinates[0]]
 
 def __multipolygon(coordinates):
-    return [smyth_map(lat, lon) for [lon, lat] in poly[0] for poly in coordinates]
+    all_polys = sum((poly[0] for poly in coordinates), [])
+    return [smyth_map(lat, lon) for [lon, lat] in all_polys]
 
 def geojson_error(clat, clon, geojson):
     points = {
