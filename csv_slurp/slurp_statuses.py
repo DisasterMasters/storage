@@ -1,4 +1,3 @@
-import enum
 import datetime
 import itertools
 import mmap
@@ -12,11 +11,21 @@ import tweepy
 
 from common import *
 
-def slurp_threads(paths, id_set, match_str):
-    id_set_mut = threading.Lock()
-    regex = re.compile(match_str)
+FLUSH_FREQ = 450
+ID_REGEX = re.compile(rb"[0-9]{15,}")
+CACHE_FILENAME = sys.argv[-1] + ".pkl"
 
-    def f(filename):
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print("Usage: %s <file/dir> [<file/dir> ...] <output collection>", file = sys.stderr)
+        exit(-1)
+
+    id_set = set()
+    id_set_mut = threading.Lock()
+
+    pool = []
+
+    def thrd_f(filename):
         fileno = os.open(filename, os.O_RDONLY)
 
         try:
@@ -29,49 +38,31 @@ def slurp_threads(paths, id_set, match_str):
             with id_set_mut:
                 id_set.update(id_list)
 
-    pool = []
-
-    for arg in paths:
+    # Spawn a thread for each file
+    for arg in sys.argv[1:-1]:
         if os.path.isdir(arg):
             for dirpath, _, filenames in os.walk(arg):
                 for filename in filenames:
                     if filename[filename.rfind('.'):] == ".txt":
                         pool.append(threading.Thread(
-                            target = f,
+                            target = thrd_f,
                             args = (os.path.join(dirpath, filename))
                         ))
+
+                        pool[-1].start()
         else:
             pool.append(threading.Thread(
-                target = f,
+                target = thrd_f,
                 args = (arg)
             ))
 
-    return pool
+            pool[-1].start()
 
-def cache_load(fname, id_set):
-
-if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: %s <file/dir> [<file/dir> ...] <output collection>", file = sys.stderr)
-        exit(-1)
-
-    FLUSH_FREQ = 450
-    IDREGEX_STRING = rb"[0-9]{15,}"
-    CACHE_FILENAME = sys.argv[-1] + ".pkl"
-
-    api = tweepy.API(TWITTER_AUTH, parser = tweepy.parsers.JSONParser())
-
-    id_set = set()
-    id_set_mut = threading.Lock()
-
-    pool = slurp_threads(sys.argv[1:-1], id_set, IDREGEX_STRING)
-
-    for thrd in pool:
-        thrd.start()
-
+    # Wait for all the threads to finish
     for thrd in pool:
         thrd.join()
 
+    api = tweepy.API(TWITTER_AUTH, parser = tweepy.parsers.JSONParser())
 
     statuses = []
     failures = []
@@ -122,4 +113,4 @@ if __name__ == "__main__":
 
     # Add the statuses to the collection
     with opendb() as db, opencoll(db, sys.argv[-1]) as coll:
-        coll.insert_many(statuses)
+        coll.insert_many(statuses, ordered = False)
