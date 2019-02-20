@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
         try:
             with mmap.mmap(fileno, 0, access = mmap.ACCESS_READ) as mm:
-                id_list = [match.group().decode()[1:] for match in regex.finditer(mm)]
+                id_list = [match.group().decode()[1:] for match in ID_REGEX.finditer(mm)]
         finally:
             os.close(fileno)
 
