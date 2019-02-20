@@ -84,6 +84,7 @@ if __name__ == "__main__":
                 if r is not None:
                     coll_out.insert_one(r)
 
+'''
     msg = """
 Results for collecting geolocation info from %s to %s:
 --------------------------------------------------------------------------------
@@ -127,3 +128,4 @@ Tweets whose geolocation error couldn't be calculated: %d""" % (
     )
 
     print(msg)
+'''
