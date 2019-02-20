@@ -1,3 +1,4 @@
+import contextlib
 from email.utils import format_datetime
 import sys
 
@@ -14,8 +15,19 @@ if __name__ == "__main__":
 
     accessed_uids = set()
 
-    with opendb() as db, opencoll(db, sys.argv[1]) as coll_from, opencoll(db, sys.argv[2]) as coll_to:
-        for r0 in coll_from.find(projection = ["user.id", "entities.user_mentions", "extended_tweet.entities.user_mentions"]):
+    with contextlib.ExitStack() as exitstack:
+        db =  exitstack.enter_context(opendb())
+        coll_from = exitstack.enter_context(opencoll(db, sys.argv[1]))
+        coll_to = exitstack.enter_context(opencoll(db, sys.argv[3]))
+
+        cursor = coll_from.find(
+            projection = ["user.id", "entities.user_mentions", "extended_tweet.entities.user_mentions"],
+            no_cursor_timeout = True
+        )
+
+        cursor = exitstack.enter_context(contextlib.closing(cursor))
+
+        for r0 in cursor:
             uids = {r0["user"]["id"]} | \
                        {user_mention["id"] for user_mention in r0["entities"]["user_mentions"]} | \
                        {user_mention["id"] for user_mention in r0["extended_tweet"]["entities"]["user_mentions"]}
