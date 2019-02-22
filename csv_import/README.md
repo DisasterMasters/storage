@@ -10,3 +10,6 @@ Re-retrieves all tweets in a certain collection with the Twitter API, placing th
 
 ## import_a_to_users.py
 Retrieves all users referenced in a certain collection (that was previously created with import_c_to_a.py), placing the results in a different collection.
+
+## LABELED_DATA
+Contains labeled data in the original format that it was given to me. Kept here for archival/reference purposes.
