@@ -28,7 +28,7 @@ def __geolocationdb_process(db_loc):
             "coordinates": [lon, lat]
         }
 
-    return (lat, lon, geojson)
+    return lat, lon, geojson
 
 def __place(place, geodb, source):
     if place is None:
