@@ -111,7 +111,7 @@ def status_coordinates(status, user, geodb):
     }
 
 def status_place(status, user, geodb):
-    return __place(status["place"], geodb, "user_place")
+    return __place(status["place"], geodb, "status_place")
 
 def status_streetaddress_nlp(status, user, geodb):
     try:
