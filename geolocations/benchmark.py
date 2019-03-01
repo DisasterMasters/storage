@@ -65,9 +65,12 @@ if __name__ == "__main__":
             setup_tmpcolls(statuses, users, tmpcolls, NSTATUSES(i))
 
             cmd = "python3 main.py " + " ".join(tmpcolls_names)
+
             d0 = time.perf_counter()
-            os.system(cmd)
+            ret = os.system(cmd)
             d1 = time.perf_counter()
+
             os.remove("geolocations.db")
 
-            csv_fd.writerow([NSTATUSES(i), d1 - d0])
+            if ret == 0:
+                csv_fd.writerow([NSTATUSES(i), d1 - d0])
