@@ -7,7 +7,7 @@ import time
 
 from common import *
 
-NITERS = 10000
+NITERS = 1000
 NSTATUSES = lambda i: math.ceil((i + 100) * math.log(i + 2))
 OUTFILE = "benchmark.csv"
 
