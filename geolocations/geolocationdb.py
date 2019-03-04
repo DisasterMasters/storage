@@ -2,6 +2,8 @@ import time
 import shelve
 import threading
 
+import random
+
 from streetaddress import StreetAddress
 
 import geopy.geocoders
@@ -12,12 +14,14 @@ class GeolocationDB:
         self.db = shelve.open(filename, "c")
 
         self.api = geopy.geocoders.Nominatim(
-            user_agent = "curent-utk",
+            user_agent = "curent2-utk",
             country_bias = "USA"
         )
 
         self.dt = float('-inf')
         self.mut = threading.Lock()
+
+        self.raw = self.api.geocode({"street": "1520 Middle Drive", "city": "Knoxville", "state": "Tennessee", "postalcode": "37996"}, geometry = "geojson").raw
 
     def __enter__(self):
         return self
@@ -61,6 +65,7 @@ class GeolocationDB:
 
                 self.dt = dt
 
+'''
                 try:
                     request = self.api.geocode(dbquery, geometry = "geojson")
                 except geopy.exc.GeopyError:
@@ -70,5 +75,11 @@ class GeolocationDB:
                     return None
 
                 self.db[dbkey] = request.raw
+'''
+                time.sleep(random.gauss(0.462335, 0.031204))
+
+                self.db[dbkey] = self.raw
+
+
 
         return self.db[dbkey]
