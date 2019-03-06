@@ -13,36 +13,91 @@ from urllib.parse import urlencode
 import pymongo
 import tweepy
 
-# Twitter API authentication token
-TWITTER_AUTH = tweepy.OAuthHandler(
+try:
+    NullContext = contextlib.nullcontext
+except AttributeError: # Fix for Python <3.7
+    class NullContext:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            pass
+
+        def __exit__(self):
+            pass
+
+try:
+    from sshtunnel import SSHTunnelForwarder
+except ImportError:
+    SSHTunnelForwarder = NullContext
+
+# Twitter API authentication token for this project
+TWITTER_AUTHKEY = tweepy.OAuthHandler(
     "ZFVyefAyg58PTdG7m8Mpe7cze",
     "KyWRZ9QkiC2MiscQ7aGpl5K2lbcR3pHYFTs7SCVIyxMlVfGjw0"
 )
-TWITTER_AUTH.set_access_token(
+TWITTER_AUTHKEY.set_access_token(
     "1041697847538638848-8J81uZBO1tMPvGHYXeVSngKuUz7Cyh",
     "jGNOVDxllHhO57EaN2FVejiR7crpENStbZ7bHqwv2tYDU"
 )
 
-# Open a default connection
+# To maintain backwards-compatibility
+TWITTER_AUTH = TWITTER_AUTHKEY
+
 @contextlib.contextmanager
-def opendb(hostname = None, dbname = "twitter"):
+def opendb(*, hostname = None, dbname = "twitter"):
+    """
+    Opens the MongoDB database, creating a connection to the Docker container
+    if necessary. If hostname isn't specified, then it checks the MONGODB_HOST
+    environment variable, and if that is unset, it checks to see if we're
+    already running on the Docker. If all else fails, it opens up
+
+    :param hostname str: URI of the MongoDB database
+    :param dbname str: Name of the database to open
+    :return: A context manager that yields the database
+    """
+
+    ssh_tunnel = NullContext()
+
     if hostname is None:
         if os.environ.get("MONGODB_HOST") is not None:
             hostname = os.environ.get("MONGODB_HOST")
         elif socket.gethostname() == "75f7e392a7ec":
             hostname = "da1.eecs.utk.edu"
         else:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                open_tunnel = (sock.connect_ex(("localhost", 27017)) != 0)
+
+            if open_tunnel:
+                ssh_tunnel = SSHTunnelForwarder(
+                    ("da2.eecs.utk.edu", 9244),
+                    ssh_username = "nwest13",
+                    ssh_pkey = os.path.join(os.environ["HOME"], ".ssh", "da2.pem"),
+                    remote_bind_address = ("da1.eecs.utk.edu", 27017),
+                    local_bind_address = ("localhost", 27017)
+                )
+
             hostname = "localhost"
 
-    conn = pymongo.MongoClient(hostname)
-
-    yield conn[dbname]
-
-    conn.close()
+    with ssh_tunnel, contextlib.closing(pymongo.MongoClient(hostname)) as conn:
+        yield conn[dbname]
 
 # Open a default collection (setting up indices and removing duplicates)
 @contextlib.contextmanager
 def opencoll(db, collname):
+    """
+    Opens a collection in the database. This does a little more than just
+    subscripting the database. First, before yielding the collection, it sets
+    up the indices of the collection, depending on the collection name. Then,
+    before losing the collection, it removes any records with duplicate IDs it
+    finds in the collection. Older records are prioritized for removal over
+    newer ones.
+
+    :param db pymongo.database.Database: Pymongo database containing collection
+    :param collname str: Name of the collection to open
+    :return: A context manager that yields the collection
+    """
+
     coll = db[collname]
 
     index_tab = {
@@ -74,9 +129,9 @@ def opencoll(db, collname):
             pymongo.IndexModel([('geojson', pymongo.GEOSPHERE)], name = 'geojson_index')
         ],
         re.compile(r"Images_[a-zA-Z]+"): [
-            pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index')
-            # pymongo.IndexModel([('md5sum', pymongo.HASHED)], name = 'md5sum_index'),
-            # pymongo.IndexModel([('sha1sum', pymongo.HASHED)], name = 'sha1sum_index'),
+            pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
+            pymongo.IndexModel([('md5sum', pymongo.HASHED)], name = 'md5sum_index'),
+            pymongo.IndexModel([('sha1sum', pymongo.HASHED)], name = 'sha1sum_index')
         ]
     }
 
@@ -109,9 +164,17 @@ def opencoll(db, collname):
         for i in range(0, len(dups), 800000):
             coll.delete_many({"_id": {"$in": dups[i:i + 800000]}})
 
-# Convert tweets obtained with extended REST API to a format similar to the
-# compatibility mode used by the streaming API
-def statusconv(status, status_permalink = None):
+def statusconv(status, *, status_permalink = None):
+    """
+    Convert tweets obtained with extended REST API to a format similar to the
+    compatibility mode used by the streaming API. This is necessary to keep
+    everything in a consistent format. (TODO: expand)
+
+    :param status dict: Status to manipulate
+    :param status_permalink str: Permalink to the status, not to be specified
+    directly
+    :return: A copy of the status that has been modified as described above
+    """
     r = copy.deepcopy(status)
 
     if "extended_tweet" in r:
@@ -183,12 +246,25 @@ def statusconv(status, status_permalink = None):
         else:
             quoted_status_permalink = None
 
-        r["quoted_status"] = statusconv(r["quoted_status"], quoted_status_permalink)
+        r["quoted_status"] = statusconv(r["quoted_status"], status_permalink = quoted_status_permalink)
 
     return r
 
 # Convert RFC 2822 date strings in a status to datetime objects
 def adddates(status, retrieved_at = None):
+    """
+    Converts RFC 2822 date strings in a status to datetime instancess in the
+    status object. This is mainly a nicety; JSON doesn't have a date type, but
+    BSON (which Pymongo uses internally) does, and Pymongo automatically
+    converts them from/to datetime instances. It also creates the
+    "retrieved_at" field for the status if the argument is specified.
+
+    :param status dict: Status to manipulate
+    :param retrieved_at datetime.datetime: Datetime instance representing when
+    the status was retrieved, optional
+    :return: A copy of the status that has been modified as described above
+    """
+
     r = copy.deepcopy(status)
 
     r["created_at"] = parsedate_to_datetime(r["created_at"])
