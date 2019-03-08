@@ -175,6 +175,7 @@ def statusconv(status, *, status_permalink = None):
     directly
     :return: A copy of the status that has been modified as described above
     """
+
     r = copy.deepcopy(status)
 
     if "extended_tweet" in r:
