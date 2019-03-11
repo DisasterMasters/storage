@@ -15,7 +15,12 @@ COLLNAME = "LabeledStatuses_IrmaXiaojing_C"
 USE_SNIFFER = False
 
 def PREPROCESS_FUNC(filename, row):
-    if all(not row[k] for k in ("Opinion", "Emotion class", "Sentiment", "Sarcasm")):
+    row = dict(row)
+
+    for k in ("Opinion", "May-be Emotion", "Emotion class", "Sentiment", "Sarcasm"):
+        row[k] = row[k].strip()
+
+    if all(not row[k] for k in ("Opinion", "May-be Emotion", "Emotion class", "Sentiment", "Sarcasm")):
         return None
 
     emotionclass_map = {
@@ -34,8 +39,11 @@ def PREPROCESS_FUNC(filename, row):
         "SH": "shame",
         "SP": "sympathy",
         "T": "thankful",
+        "W": "worry_fear",
         "WF": "worry_fear"
     }
+
+    emotionclass_set = set(emotionclass_map.values())
 
     sentiment_map = {
         "Ps": "positive",
@@ -49,8 +57,15 @@ def PREPROCESS_FUNC(filename, row):
         assert row["Opinion"] == "1"
         tags.append("opinion")
 
+    if row["May-be Emotion"]:
+        emotionclass = row["May-be Emotion"].lower().replace("/", "_")
+
+        assert emotionclass in emotionclass_set
+        tags.append(emotionclass)
+
     if row["Emotion class"]:
-        tags.append(emotionclass_map[row["Emotion class"]])
+        for emotionclass in row["Emotion class"].split("/"):
+            tags.append(emotionclass_map[emotionclass.upper()])
 
     if row["Sentiment"]:
         tags.append(sentiment_map[row["Sentiment"]])

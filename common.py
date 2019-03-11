@@ -14,7 +14,7 @@ import pymongo
 import tweepy
 
 try:
-    NullContext = contextlib.nullcontext
+    NullContext = lambda *args, **kwargs: contextlib.nullcontext()
 except AttributeError: # Fix for Python <3.7
     class NullContext:
         def __init__(self, *args, **kwargs):

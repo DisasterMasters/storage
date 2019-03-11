@@ -12,7 +12,7 @@ if __name__ == "__main__":
 
     api = tweepy.API(TWITTER_AUTH, parser = tweepy.parsers.JSONParser())
 
-    with openconn() as conn, opencoll(conn, sys.argv[1], colltype = "statuses_c") as coll_from, opencoll(conn, sys.argv[2]) as coll_to:
+    with opendb() as db, opencoll(db, sys.argv[1]) as coll_from, opencoll(db, sys.argv[2]) as coll_to:
         for r0 in coll_from.find(projection = ["id"]):
             if coll_to.find({"id": r0["id"]}, projection = ["id"]) is not None:
                 continue

@@ -38,21 +38,6 @@ def read_csv(opts, filename, coll, coll_mut):
                 dialect = conf
                 fieldnames = None
 
-        '''
-        if filename[filename.rfind("."):] == ".txt":
-            dialect = ScrapyDialect
-            fieldnames = None
-        else:
-            blk = fd.read(4096)
-            fd.seek(0)
-
-            dialect = csv.Sniffer().sniff(blk)
-
-            if csv.Sniffer().has_header(blk):
-                fieldnames = None
-            else:
-                fieldnames = "username,date,retweets,favorites,text,geo,mentions,hashtags,id,permalink,FixedSpaceIssues".split(",")
-        '''
         dictreader = csv.DictReader(fd, fieldnames, dialect = dialect)
 
         for row in dictreader:
@@ -87,7 +72,7 @@ if __name__ == "__main__":
     with open(sys.argv[1], "r") as fd:
         exec(fd.read(), opts)
 
-    with openconn() as conn, opencoll(conn, opts["COLLNAME"], colltype = "statuses_c") as coll:
+    with opendb() as db, opencoll(db, opts["COLLNAME"]) as coll:
         coll_mut = threading.Lock()
         pool = []
 
@@ -112,23 +97,3 @@ if __name__ == "__main__":
         # Wait for all threads to finish
         for thrd in pool:
             thrd.join()
-
-        '''
-        # Remove noisy entries
-        rm = []
-        ids = set()
-
-        for r in coll.find(projection = ["id"]):
-            try:
-                id = int(r["id"])
-            except:
-                rm.append(r["_id"])
-            else:
-                if id in ids:
-                    rm.append(r["_id"])
-
-                ids.add(id)
-
-        for i in range(0, len(rm), 800000):
-            coll.delete_many({'_id': {"$in": rm[i:i + 800000]}})
-        '''
