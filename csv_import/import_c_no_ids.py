@@ -40,7 +40,7 @@ if __name__ == "__main__":
             r_out, dist = text_search(r["text"], colls_alltweets)
 
             if dist < 90:
-                print("\"%s\" -> \033[31mError\033[0m (No suitable match found, closest was %d%%)" % (text, dist))
+                print("\"%s\" -> \033[31mError\033[0m (No suitable match found, closest was %d%%)" % (r["text"], dist))
             else:
                 r_out["tags"] = r["tags"]
                 coll_out.insert_one(r_out)
