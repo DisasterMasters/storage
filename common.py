@@ -2,34 +2,20 @@ import contextlib
 import copy
 import datetime
 from email.utils import parsedate_to_datetime
+from io import IOBase
 import os
 import re
+import select
 import socket
+import socketserver
 import time
 from urllib.error import HTTPError
 from urllib.request import urlopen
 from urllib.parse import urlencode
 
+import paramiko
 import pymongo
 import tweepy
-
-try:
-    NullContext = lambda *args, **kwargs: contextlib.nullcontext()
-except AttributeError: # Fix for Python <3.7
-    class NullContext:
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def __enter__(self):
-            pass
-
-        def __exit__(self):
-            pass
-
-try:
-    from sshtunnel import SSHTunnelForwarder
-except ImportError:
-    SSHTunnelForwarder = NullContext
 
 # Twitter API authentication token for this project
 TWITTER_AUTHKEY = tweepy.OAuthHandler(
@@ -44,6 +30,122 @@ TWITTER_AUTHKEY.set_access_token(
 # To maintain backwards-compatibility
 TWITTER_AUTH = TWITTER_AUTHKEY
 
+RUNNING_ON_DA2 = socket.gethostname() == "75f7e392a7ec"
+
+try:
+    NullContext = contextlib.nullcontext
+except AttributeError: # Fix for Python <3.7
+    class NullContext:
+        def __init__(self):
+            pass
+
+        def __enter__(self):
+            pass
+
+        def __exit__(self, type, value, traceback):
+            pass
+
+class LocalForwardServer(socketserver.ThreadingTCPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
+    def __init__(self, conn, local_port, remote_hostname, remote_port):
+        handler = LocalForwardServer.new_handler(conn, remote_hostname, remote_port)
+
+        print("Get a new handler for %d:%s:%d" % (local_port, remote_hostname, remote_port))
+
+        super().__init__(("localhost", local_port), handler)
+
+    def __enter__(self):
+        self.serve_forever()
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.shutdown()
+        self.server_close()
+
+    @staticmethod
+    def new_handler(conn, hostname, port):
+        # Shamelessly stolen from <http://tinyurl.com/y6dxrmyc>
+        class TunnelHandler(socketserver.BaseRequestHandler):
+            def handle(self):
+                try:
+                    chan = conn.open_channel(
+                        "direct-tcpip",
+                        (hostname, port),
+                        self.request.getpeername(),
+                    )
+                except:
+                    return
+
+                if chan is None:
+                    return
+
+                while True:
+                    r, w, x = select.select([self.request, chan], [], [])
+
+                    if self.request in r:
+                        data = self.request.recv(1024)
+                        if len(data) == 0:
+                            break
+                        chan.send(data)
+
+                    if chan in r:
+                        data = chan.recv(1024)
+                        if len(data) == 0:
+                            break
+                        self.request.send(data)
+
+                chan.close()
+                self.request.close()
+
+        return TunnelHandler
+
+@contextlib.contextmanager
+def openssh(*, hostname = None, port = -1, username = None, password = None, pkey = None):
+    if RUNNING_ON_DA2:
+        class SFTPWrapper:
+            # TODO: Add more functions here
+            def open(*args, **kwargs):
+                return open(*args, **kwargs)
+
+        yield SFTPWrapper()
+
+    if hostname is None:
+        hostname = "da2.eecs.utk.edu"
+
+    if port < 0:
+        port = 9244
+
+    if username is None:
+        username = "nwest13"
+
+    if isinstance(pkey, IOBase):
+        pkey = paramiko.RSAKey.from_private_key(pkey)
+    elif isinstance(pkey, str):
+        pkey = paramiko.RSAKey.from_private_key_file(pkey)
+    elif pkey is None:
+        pkey = paramiko.RSAKey.from_private_key_file(os.path.join(os.environ["HOME"], ".ssh", "da2.pem"))
+
+    if not isinstance(pkey, paramiko.PKey):
+        raise TypeError
+
+    with contextlib.closing(paramiko.Transport((hostname, port))) as conn:
+        if password is not None:
+            conn.connect(username = username, password = password)
+        else:
+            conn.connect(username = username, pkey = pkey)
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            mongodb_isopen = (sock.connect_ex(("localhost", 27017)) == 0)
+            jupyter_isopen = (sock.connect_ex(("localhost", 8889)) == 0)
+
+        mongodb_fwd = NullContext() if mongodb_isopen else LocalForwardServer(conn, 27017, "da1.eecs.utk.edu", 27017)
+        jupyter_fwd = NullContext() if jupyter_isopen else LocalForwardServer(conn, 8889, "localhost", 8888)
+
+        with mongodb_fwd, jupyter_fwd, contextlib.closing(conn.open_sftp_client()) as sftp:
+            yield sftp
+
 @contextlib.contextmanager
 def opendb(*, hostname = None, dbname = "twitter"):
     """
@@ -57,29 +159,15 @@ def opendb(*, hostname = None, dbname = "twitter"):
     :return: A context manager that yields the database
     """
 
-    ssh_tunnel = NullContext()
-
     if hostname is None:
         if os.environ.get("MONGODB_HOST") is not None:
             hostname = os.environ.get("MONGODB_HOST")
-        elif socket.gethostname() == "75f7e392a7ec":
+        elif RUNNING_ON_DA2:
             hostname = "da1.eecs.utk.edu"
         else:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                open_tunnel = (sock.connect_ex(("localhost", 27017)) != 0)
-
-            if open_tunnel:
-                ssh_tunnel = SSHTunnelForwarder(
-                    ("da2.eecs.utk.edu", 9244),
-                    ssh_username = "nwest13",
-                    ssh_pkey = os.path.join(os.environ["HOME"], ".ssh", "da2.pem"),
-                    remote_bind_address = ("da1.eecs.utk.edu", 27017),
-                    local_bind_address = ("localhost", 27017)
-                )
-
             hostname = "localhost"
 
-    with ssh_tunnel, contextlib.closing(pymongo.MongoClient(hostname)) as conn:
+    with contextlib.closing(pymongo.MongoClient(hostname)) as conn:
         yield conn[dbname]
 
 # Open a default collection (setting up indices and removing duplicates)
