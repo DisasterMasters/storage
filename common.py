@@ -2,7 +2,7 @@ import contextlib
 import copy
 import datetime
 from email.utils import parsedate_to_datetime
-from io import IOBase
+import io
 import os
 import re
 import select
@@ -58,7 +58,6 @@ class LocalForwardServer(socketserver.ThreadingTCPServer):
 
     def __enter__(self):
         self.thrd.start()
-        return self
 
     def __exit__(self, type, value, traceback):
         self.shutdown()
@@ -105,8 +104,11 @@ class LocalForwardServer(socketserver.ThreadingTCPServer):
 
 class SFTPWrapper:
     # TODO: Add more functions here
-    def open(*args, **kwargs):
+    def open(self, *args, **kwargs):
         return open(*args, **kwargs)
+
+    def mkdir(self, *args, **kwargs):
+        return os.mkdir(*args, **kwargs)
 
 @contextlib.contextmanager
 def opentunnel(*, hostname = None, port = -1, username = None, password = None, pkey = None):
@@ -122,15 +124,15 @@ def opentunnel(*, hostname = None, port = -1, username = None, password = None, 
     if username is None:
         username = "nwest13"
 
-    if isinstance(pkey, IOBase):
+    if isinstance(pkey, io.IOBase):
         pkey = paramiko.RSAKey.from_private_key(pkey)
     elif isinstance(pkey, str):
         pkey = paramiko.RSAKey.from_private_key_file(pkey)
     elif pkey is None:
         pkey = paramiko.RSAKey.from_private_key_file(os.path.join(os.environ["HOME"], ".ssh", "da2.pem"))
 
-    if not isinstance(pkey, paramiko.PKey):
-        raise TypeError
+    #if not isinstance(pkey, paramiko.PKey) and password is None:
+    #    raise TypeError
 
     with contextlib.closing(paramiko.Transport((hostname, port))) as conn:
         if password is not None:
