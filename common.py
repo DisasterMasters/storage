@@ -220,10 +220,9 @@ def opencoll(db, collname):
             pymongo.IndexModel([('latitude', pymongo.ASCENDING), ('longitude', pymongo.ASCENDING)], name = 'latitude_longitude_index'),
             pymongo.IndexModel([('geojson', pymongo.GEOSPHERE)], name = 'geojson_index')
         ],
-        re.compile(r"Images_[a-zA-Z]+"): [
+        re.compile(r"Media_[a-zA-Z]+"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
-            pymongo.IndexModel([('md5sum', pymongo.HASHED)], name = 'md5sum_index'),
-            pymongo.IndexModel([('sha1sum', pymongo.HASHED)], name = 'sha1sum_index')
+            pymongo.IndexModel([('media.local_url', pymongo.ASCENDING)], name = 'local_url_index')
         ]
     }
 

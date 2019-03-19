@@ -35,7 +35,13 @@ def get_orb(mat):
     return __get_points(mat, cv2.ORB)
 
 def get_sift(mat):
-    return __get_points(mat, cv2.xfeatures2d_SIFT)
+    try:
+        return __get_points(mat, cv2.xfeatures2d_SIFT)
+    except AttributeError:
+        return None
 
 def get_surf(mat):
-    return __get_points(mat, cv2.xfeatures2d_SURF)
+    try:
+        return __get_points(mat, cv2.xfeatures2d_SURF)
+    except AttributeError:
+        return None
