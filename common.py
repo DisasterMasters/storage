@@ -8,6 +8,7 @@ import re
 import select
 import socket
 import socketserver
+import threading
 import time
 from urllib.error import HTTPError
 from urllib.request import urlopen
@@ -51,17 +52,18 @@ class LocalForwardServer(socketserver.ThreadingTCPServer):
 
     def __init__(self, conn, local_port, remote_hostname, remote_port):
         handler = LocalForwardServer.new_handler(conn, remote_hostname, remote_port)
-
-        print("Get a new handler for %d:%s:%d" % (local_port, remote_hostname, remote_port))
-
         super().__init__(("localhost", local_port), handler)
 
+        self.thrd = threading.Thread(target = self.serve_forever)
+
     def __enter__(self):
-        self.serve_forever()
+        self.thrd.start()
         return self
 
     def __exit__(self, type, value, traceback):
         self.shutdown()
+        self.thrd.join()
+
         self.server_close()
 
     @staticmethod
@@ -101,14 +103,14 @@ class LocalForwardServer(socketserver.ThreadingTCPServer):
 
         return TunnelHandler
 
-@contextlib.contextmanager
-def openssh(*, hostname = None, port = -1, username = None, password = None, pkey = None):
-    if RUNNING_ON_DA2:
-        class SFTPWrapper:
-            # TODO: Add more functions here
-            def open(*args, **kwargs):
-                return open(*args, **kwargs)
+class SFTPWrapper:
+    # TODO: Add more functions here
+    def open(*args, **kwargs):
+        return open(*args, **kwargs)
 
+@contextlib.contextmanager
+def opentunnel(*, hostname = None, port = -1, username = None, password = None, pkey = None):
+    if RUNNING_ON_DA2:
         yield SFTPWrapper()
 
     if hostname is None:
