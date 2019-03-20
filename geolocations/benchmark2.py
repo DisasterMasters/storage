@@ -66,7 +66,21 @@ if __name__ == "__main__":
             ret = os.system(cmd)
             d1 = time.perf_counter()
 
-            os.remove("geolocations.db")
+            try:
+                os.remove("geolocations")
+            except FileNotFoundError:
+                pass
+
+            try:
+                os.remove("geolocations.db")
+            except FileNotFoundError:
+                pass
+
+            try:
+                os.remove("geolocations.db.db")
+            except FileNotFoundError:
+                pass
+
             tmpcolls[0].delete_many({})
             tmpcolls[2].delete_many({})
 
