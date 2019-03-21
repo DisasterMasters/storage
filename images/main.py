@@ -47,10 +47,12 @@ if __name__ == "__main__":
         coll_from = exitstack.enter_context(opencoll(db, sys.argv[1]))
         coll_to = exitstack.enter_context(opencoll(db, sys.argv[2]))
 
-        colldir = posixpath.join("/", "home", "nwest13", "Media", sys.argv[2][(sys.argv[2].find("_") + 1):])
+        mediadir = posixpath.join("/", "home", "nwest13", "Media")
+        colldir = posixpath.join(mediadir, sys.argv[2][(sys.argv[2].find("_") + 1):])
         orb = cv2.ORB_create()
 
         try:
+            sftp.mkdir(mediadir)
             sftp.mkdir(colldir)
         except IOError:
             pass
