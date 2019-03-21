@@ -114,7 +114,7 @@ if __name__ == "__main__":
                     r["keypoints"] = list(map(keypoint2dict, kp))
                     r["descriptors"] = des.tolist()
 
-                os.remove(temp_filename)
+                os.remove(tempname)
                 medialist.append(r)
 
             coll_to.insert_one({
