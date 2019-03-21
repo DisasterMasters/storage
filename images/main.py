@@ -47,12 +47,10 @@ if __name__ == "__main__":
         coll_from = exitstack.enter_context(opencoll(db, sys.argv[1]))
         coll_to = exitstack.enter_context(opencoll(db, sys.argv[2]))
 
-        mediadir = posixpath.join("/", "home", "nwest13", "Media")
-        colldir = posixpath.join(mediadir, sys.argv[2][(sys.argv[2].find("_") + 1):])
+        colldir = posixpath.join("/", "home", "nwest13", "Media", sys.argv[2][(sys.argv[2].find("_") + 1):])
         orb = cv2.ORB_create()
 
         try:
-            sftp.mkdir(mediadir)
             sftp.mkdir(colldir)
         except IOError:
             pass
@@ -114,7 +112,7 @@ if __name__ == "__main__":
                     kp, des = orb.detectAndCompute(img, None)
 
                     r["keypoints"] = list(map(keypoint2dict, kp))
-                    r["descriptors"] = des.tolist()
+                    r["descriptors"] = des.tolist() if des is not None else []
 
                 os.remove(tempname)
                 medialist.append(r)
