@@ -36,6 +36,62 @@ def dict2keypoint(d):
         d["class_id"]
     )
 
+def download(sftp, remote_url, local_url):
+    # Python is a very good language because of its clear syntax, you'll
+    # definitely NEVER need four or five try/catch blocks in it
+
+    try:
+        with sftp.open(local_url, "rb") as fd:
+            print("%s already exists, skipping" % local_url)
+            return fd.read()
+    except IOError:
+        pass
+
+    while True:
+        try:
+            with urlopen(remote_url) as response:
+                filedata = response.read()
+
+            break
+
+        except HTTPError as err:
+            print("Error downloading %s: %r" % (url, e), end = "")
+
+            if err.code // 100 == 4:
+                print("Skipping")
+                return None
+
+            else:
+                print("Sleeping")
+                time.sleep(5)
+
+    with sftp.open(local_url, "wbx") as fd:
+        fd.write(filedata)
+        print("Downloaded %s to %s" % (remote_url, local_url))
+
+    return filedata
+
+def extract_kp_des(orb, filedata):
+    try:
+        with tempfile.NamedTemporaryFile(delete = False) as fd:
+            filename = fd.name
+            fd.write(filedata)
+
+        img = cv2.imread(tempname, cv2.IMREAD_GRAYSCALE)
+
+        if img is not None:
+            kp, des = orb.detectAndCompute(img, None)
+
+            kp = list(map(keypoint2dict, kp))
+            des = des.tolist() if des is not None else None
+        else:
+            kp = None
+            des = None
+
+        return kp, des
+    finally:
+        os.remove(filename)
+
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: %s <collection_from> <collection_to>", file = sys.stderr)
@@ -77,60 +133,31 @@ if __name__ == "__main__":
             assert len(urls) > 0
 
             for url in urls:
-                while True:
-                    try:
-                        with urlopen(url) as response:
-                            filedata = response.read()
-                        break
-                    except HTTPError as err:
-                        print("Error downloading %s: %r" % (url, e))
-
-                        if err.code // 100 == 4:
-                            print("Skipping")
-                        else:
-                            print("Sleeping")
-                            time.sleep(5)
-
                 filename = posixpath.join(colldir, url[(url.rfind("/") + 1):])
 
-                try:
-                    with sftp.open(filename, "wbx") as fd:
-                        fd.write(filedata)
-
-                    print("Downloaded %s from tweet %d to %s" % (url, r0["id"], filename))
-                except IOError:
-                    print("%s already exists, skipping" % filename)
+                filedata = download(sftp, url, filename)
+                if filedata is None:
+                    continue
 
                 retrieved_at = datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc)
 
                 sha256sum = hashlib.sha256()
                 sha256sum.update(filedata)
 
-                r = {
+                kp, des = extract_kp_des(orb, filedata)
+
+                medialist.append({
                     "remote_url": url,
                     "local_url": filename,
                     "retrieved_at": retrieved_at,
                     "sha256sum": sha256sum.hexdigest(),
-                    "keypoints": None,
-                    "descriptors": None
-                }
-
-                with tempfile.NamedTemporaryFile(delete = False) as fd:
-                    tempname = fd.name
-                    fd.write(filedata)
-
-                img = cv2.imread(tempname, cv2.IMREAD_GRAYSCALE)
-                if img is not None:
-                    kp, des = orb.detectAndCompute(img, None)
-
-                    r["keypoints"] = list(map(keypoint2dict, kp))
-                    r["descriptors"] = des.tolist() if des is not None else []
-
-                os.remove(tempname)
-                medialist.append(r)
+                    "keypoints": kp,
+                    "descriptors": des
+                })
 
             if medialist:
                 print("Adding entry for tweet %d with %d media entries" % (r0["id"], len(medialist)))
+
                 coll_to.insert_one({
                     "id": r0["id"],
                     "retrieved_at": max(media["retrieved_at"] for media in medialist),
