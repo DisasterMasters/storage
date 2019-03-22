@@ -81,16 +81,24 @@ if __name__ == "__main__":
                         with urlopen(url) as response:
                             filedata = response.read()
                         break
-                    except HTTPError as e:
+                    except HTTPError as err:
                         print("Error downloading %s: %r" % (url, e))
-                        time.sleep(5)
+
+                        if err.code == 404:
+                            print("Skipping")
+                        else:
+                            print("Sleeping")
+                            time.sleep(5)
 
                 filename = posixpath.join(colldir, url[(url.rfind("/") + 1):])
 
-                with sftp.open(filename, "wb") as fd:
-                    fd.write(filedata)
+                try:
+                    with sftp.open(filename, "wbx") as fd:
+                        fd.write(filedata)
 
-                print("Downloaded %s from tweet %d to %s" % (url, r0["id"], filename))
+                    print("Downloaded %s from tweet %d to %s" % (url, r0["id"], filename))
+                except IOError:
+                    print("%s already exists, skipping" % filename)
 
                 sha256sum = hashlib.sha256()
                 sha256sum.update(filedata)
@@ -117,7 +125,8 @@ if __name__ == "__main__":
                 os.remove(tempname)
                 medialist.append(r)
 
-            coll_to.insert_one({
-                "id": r0["id"],
-                "media": medialist
-            })
+            if medialist:
+                coll_to.insert_one({
+                    "id": r0["id"],
+                    "media": medialist
+                })
