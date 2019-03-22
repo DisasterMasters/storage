@@ -77,20 +77,20 @@ def extract_kp_des(orb, filedata):
             filename = fd.name
             fd.write(filedata)
 
-        img = cv2.imread(tempname, cv2.IMREAD_GRAYSCALE)
-
-        if img is not None:
-            kp, des = orb.detectAndCompute(img, None)
-
-            kp = list(map(keypoint2dict, kp))
-            des = des.tolist() if des is not None else None
-        else:
-            kp = None
-            des = None
-
-        return kp, des
+        img = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
     finally:
         os.remove(filename)
+
+    if img is not None:
+        kp, des = orb.detectAndCompute(img, None)
+
+        kp = list(map(keypoint2dict, kp))
+        des = des.tolist() if des is not None else None
+    else:
+        kp = None
+        des = None
+
+    return kp, des
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
