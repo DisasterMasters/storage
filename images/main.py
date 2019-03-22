@@ -55,7 +55,7 @@ def download(sftp, remote_url, local_url):
             break
 
         except HTTPError as err:
-            print("Error downloading %s: %r" % (url, e), end = "")
+            print("Error downloading %s: %r" % (url, err), end = "")
 
             if err.code // 100 == 4:
                 print("Skipping")
