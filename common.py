@@ -222,7 +222,9 @@ def opencoll(db, collname):
         ],
         re.compile(r"Media_[a-zA-Z]+"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
-            pymongo.IndexModel([('media.local_url', pymongo.ASCENDING)], name = 'local_url_index')
+            pymongo.IndexModel([('retrieved_at', pymongo.ASCENDING)], name = 'retrieved_at_index'),
+            pymongo.IndexModel([('media.retrieved_at', pymongo.ASCENDING)], name = 'media_retrieved_at_index'),
+            pymongo.IndexModel([('media.local_url', pymongo.ASCENDING)], name = 'media_local_url_index')
         ]
     }
 

@@ -1,4 +1,5 @@
 import contextlib
+import datetime
 from email.utils import format_datetime
 import hashlib
 import posixpath
@@ -9,7 +10,6 @@ import tempfile
 import time
 
 import cv2
-import tweepy
 
 from common import *
 
@@ -65,6 +65,7 @@ if __name__ == "__main__":
 
         for r0 in cursor:
             medialist = []
+            atimelist = []
             urls = set()
 
             if "media" in r0["entities"]:
@@ -84,7 +85,7 @@ if __name__ == "__main__":
                     except HTTPError as err:
                         print("Error downloading %s: %r" % (url, e))
 
-                        if err.code == 404:
+                        if err.code // 100 == 4:
                             print("Skipping")
                         else:
                             print("Sleeping")
@@ -100,12 +101,15 @@ if __name__ == "__main__":
                 except IOError:
                     print("%s already exists, skipping" % filename)
 
+                retrieved_at = datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc)
+
                 sha256sum = hashlib.sha256()
                 sha256sum.update(filedata)
 
                 r = {
                     "remote_url": url,
                     "local_url": filename,
+                    "retrieved_at": retrieved_at,
                     "sha256sum": sha256sum.hexdigest(),
                     "keypoints": None,
                     "descriptors": None
@@ -126,7 +130,9 @@ if __name__ == "__main__":
                 medialist.append(r)
 
             if medialist:
+                print("Adding entry for tweet %d with %d media entries" % (r0["id"], len(medialist)))
                 coll_to.insert_one({
                     "id": r0["id"],
+                    "retrieved_at": max(media["retrieved_at"] for media in medialist)
                     "media": medialist
                 })
