@@ -133,6 +133,6 @@ if __name__ == "__main__":
                 print("Adding entry for tweet %d with %d media entries" % (r0["id"], len(medialist)))
                 coll_to.insert_one({
                     "id": r0["id"],
-                    "retrieved_at": max(media["retrieved_at"] for media in medialist)
+                    "retrieved_at": max(media["retrieved_at"] for media in medialist),
                     "media": medialist
                 })
