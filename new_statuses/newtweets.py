@@ -53,3 +53,15 @@ class NewUsernameThread(threading.Thread):
 
     def run(self):
         self.strm.filter(follow = self.queries)
+
+class NewLocationThread(threading.Thread):
+    def __init__(self, queries, qu, ev):
+        super().__init__()
+
+        self.queries = [i for bbox in queries for i in bbox]
+        assert len(self.queries) % 4 == 0
+
+        self.strm = tweepy.Stream(auth = TWITTER_AUTH, listener = QueueListener(qu, ev))
+
+    def run(self):
+        self.strm.filter(locations = self.queries)
