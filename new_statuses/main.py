@@ -87,11 +87,11 @@ if __name__ == "__main__":
         pool[-1].start()
 
     if old_locations:
-        pool.append(OldLocationThread(old_usernames, qu, ev))
+        pool.append(OldLocationThread(old_locations, qu, ev))
         pool[-1].start()
 
     if new_locations:
-        pool.append(NewLocationThread(new_usernames, qu, ev))
+        pool.append(NewLocationThread(new_locations, qu, ev))
         pool[-1].start()
 
     with opendb() as db, opencoll(db, opts["COLLNAME"]) as coll:
