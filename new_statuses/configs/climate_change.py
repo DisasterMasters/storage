@@ -16,6 +16,9 @@ KEYWORDS = [
     "glaciers"
 ]
 
+# Users to follow for in both old and new tweets
+USERNAMES = []
+
 # Geolocations to track for in both old and new tweets
 LOCATIONS = []
 
