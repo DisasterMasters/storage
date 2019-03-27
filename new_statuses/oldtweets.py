@@ -2,7 +2,7 @@ import copy
 import datetime
 from email.utils import parsedate_to_datetime
 import itertools
-import math
+from math import sin, cos, atan, sqrt, radians
 import re
 import threading
 from urllib.request import urlopen
@@ -102,11 +102,6 @@ class OldLocationThread(threading.Thread):
     def __init__(self, queries, qu, ev):
         super().__init__()
 
-        # Mathematical constants
-        cos_phi = math.sqrt(math.pi / 2)
-        sec_phi = math.sqrt(2 / math.pi)
-        R_earth = 6371.0
-
         self.queries = []
 
         for bbox in queries:
@@ -115,10 +110,15 @@ class OldLocationThread(threading.Thread):
             x = (xmin + xmax) / 2
             y = (ymin + ymax) / 2
 
-            # Perform a Smyth unmapping
-            w = math.radians(abs(xmax - xmin)) * cos_phi * R_earth
-            h = math.sin(math.radians(abs(ymax - ymin))) * sec_phi * R_earth
-            r = math.sqrt(w * h / math.pi)
+            # Calculate the great circle distance between the two points, use
+            # that as the diameter of the circle
+            lat1 = radians(ymin)
+            lat2 = radians(ymax)
+            dlon = radians(abs(xmax - xmin))
+            r = (6371.0088 / 2) * atan( \
+                sqrt((cos(lat2) * sin(dlon)) ** 2 + (cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dlon)) ** 2) / \
+                (sin(lat1) * sin(lat2) + cos(lat1) * cos(lat2) * sin(dlon)) \
+            )
 
             self.queries.append("%f,%f,%fkm" % (y, x, r))
 
@@ -139,7 +139,6 @@ class OldLocationThread(threading.Thread):
                 continue
 
             results = self.api.search(
-                "",
                 geocode = i,
                 result_type = "mixed",
                 max_id = max_id,

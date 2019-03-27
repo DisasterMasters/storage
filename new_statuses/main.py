@@ -67,6 +67,9 @@ if __name__ == "__main__":
     old_usernames = opts["USERNAMES"] + opts["OLD_USERNAMES"]
     new_usernames = opts["USERNAMES"] + opts["NEW_USERNAMES"]
 
+    old_locations = opts["LOCATIONS"] + opts["OLD_LOCATIONS"]
+    new_locations = opts["LOCATIONS"] + opts["NEW_LOCATIONS"]
+
     if old_keywords:
         pool.append(OldKeywordThread(old_keywords, qu, ev))
         pool[-1].start()
@@ -81,6 +84,14 @@ if __name__ == "__main__":
 
     if new_usernames:
         pool.append(NewUsernameThread(new_usernames, qu, ev))
+        pool[-1].start()
+
+    if old_locations:
+        pool.append(OldLocationThread(old_usernames, qu, ev))
+        pool[-1].start()
+
+    if new_locations:
+        pool.append(NewLocationThread(new_usernames, qu, ev))
         pool[-1].start()
 
     with opendb() as db, opencoll(db, opts["COLLNAME"]) as coll:

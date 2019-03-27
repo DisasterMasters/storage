@@ -1,5 +1,5 @@
 # Collection to save to
-COLLNAME = ""
+COLLNAME = "Statuses_MiscGlobal_A"
 
 # Keywords to search for in both old and new tweets
 KEYWORDS = []
@@ -26,4 +26,6 @@ NEW_KEYWORDS = []
 NEW_USERNAMES = []
 
 # Geolocations to track for only new tweets
-NEW_LOCATIONS = []
+NEW_LOCATIONS = [
+    (-180.0, -90.0, 180.0, 90.0)
+]
