@@ -7,8 +7,8 @@ import threading
 import tweepy
 
 from common import *
-from oldtweets import OldKeywordThread, OldUsernameThread
-from newtweets import NewKeywordThread, NewUsernameThread
+from oldtweets import OldKeywordThread, OldUsernameThread, OldLocationThread
+from newtweets import NewKeywordThread, NewUsernameThread, NewLocationThread
 
 def print_status(status):
     print("\"%s\" -- @%s, %s (retrieved %s)" % (
