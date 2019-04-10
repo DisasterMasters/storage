@@ -18,15 +18,22 @@ import paramiko
 import pymongo
 import tweepy
 
-# Twitter API authentication token for this project
-TWITTER_AUTHKEY = tweepy.OAuthHandler(
-    "ZFVyefAyg58PTdG7m8Mpe7cze",
-    "KyWRZ9QkiC2MiscQ7aGpl5K2lbcR3pHYFTs7SCVIyxMlVfGjw0"
-)
-TWITTER_AUTHKEY.set_access_token(
-    "1041697847538638848-8J81uZBO1tMPvGHYXeVSngKuUz7Cyh",
-    "jGNOVDxllHhO57EaN2FVejiR7crpENStbZ7bHqwv2tYDU"
-)
+try:
+    if os.environ.get("TWITTER_AUTHKEY") is not None:
+        filename = os.environ.get("TWITTER_AUTHKEY")
+    else:
+        filename = os.path.join(os.environ["HOME"], "twitter.pem")
+
+    with open(filename, "r") as fd:
+        keys = [line.strip() for line in fd if line.strip()]
+
+        assert len(keys) == 4
+
+        # Twitter API authentication token for this project
+        TWITTER_AUTHKEY = tweepy.OAuthHandler(keys[0], keys[1])
+        TWITTER_AUTHKEY.set_access_token(keys[2], keys[3])
+except:
+    TWITTER_AUTHKEY = None
 
 # To maintain backwards-compatibility
 TWITTER_AUTH = TWITTER_AUTHKEY
@@ -83,18 +90,22 @@ class LocalForwardServer(socketserver.ThreadingTCPServer):
                     return
 
                 while True:
-                    r, w, x = select.select([self.request, chan], [], [])
+                    r, _, _ = select.select([self.request, chan], [], [])
 
                     if self.request in r:
                         data = self.request.recv(1024)
+
                         if len(data) == 0:
                             break
+
                         chan.send(data)
 
                     if chan in r:
                         data = chan.recv(1024)
+
                         if len(data) == 0:
                             break
+
                         self.request.send(data)
 
                 chan.close()
@@ -176,7 +187,7 @@ def opendb(*, hostname = None, dbname = "twitter"):
 
 # Open a default collection (setting up indices and removing duplicates)
 @contextlib.contextmanager
-def opencoll(db, collname):
+def opencoll(db, collname, *, cleanup = True):
     """
     Opens a collection in the database. This does a little more than just
     subscripting the database. First, before yielding the collection, it sets
@@ -239,7 +250,7 @@ def opencoll(db, collname):
     yield coll
 
     # Remove duplicates
-    if "id_index" in index_names:
+    if "id_index" in index_names and cleanup:
         dups = []
         ids = set()
 
