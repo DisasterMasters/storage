@@ -1,4 +1,4 @@
-address.py extration of address from text
+address.py extraction of address from text
 
 ```
 addr = StreetAddress.nlp("We're having a party at 123 Foobar Rd, feel free to come visit! :)")
