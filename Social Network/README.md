@@ -39,7 +39,7 @@ flag: pass 'txt' if you are getting users from a .txt file or 'col' if from a co
         "following_ids" : null
 }
 ```
-# id: <the user id>
+# id: ######the user id
 page_number: the number of the page returned by twitter
 followers_ids: (5000 at most) list of user ids that follows a specific user. null if following is filled.
 following ids: (5000 at most) list of user ids that a secific user follows. null if followers is filled.
