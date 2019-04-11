@@ -13,8 +13,8 @@ network_collection_name: the collection you want to store this network in the mo
 flag: pass 'txt' if you are getting users from a .txt file or 'col' if from a collection
 
 STORED FORMAT
-
-{
+```
+{ <br />
         "_id" : ObjectId("5cad0b613339f635cd84ddab"),
         "id" : 14173315,
         "page_number" : 0,
@@ -38,7 +38,7 @@ STORED FORMAT
         },
         "following_ids" : null
 }
-
+```
 id: the user id
 page_number: the number of the page returned by twitter
 followers_ids: (5000 at most) list of user ids that follows a specific user. null if following is filled.
