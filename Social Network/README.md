@@ -14,7 +14,7 @@ flag: pass 'txt' if you are getting users from a .txt file or 'col' if from a co
 
 STORED FORMAT
 ```
-{ <br />
+{ 
         "_id" : ObjectId("5cad0b613339f635cd84ddab"),
         "id" : 14173315,
         "page_number" : 0,
