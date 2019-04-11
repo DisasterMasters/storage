@@ -1,8 +1,8 @@
-Making User Networks
+# Making User Networks
 This function creates a mongodb collection of json user objects that consist of followers of a list of specific 
 users and the users that a list of specific users follow.
 
-PARAMETERS
+# PARAMETERS
 ```
 def make_network(user_collection_name, network_collection_name, flag):
 ```
@@ -12,7 +12,7 @@ user_collection_name: the location the users are stored in and can be held in tw
 network_collection_name: the collection you want to store this network in the mongodb under twitter.
 flag: pass 'txt' if you are getting users from a .txt file or 'col' if from a collection
 
-STORED FORMAT
+# STORED FORMAT
 ```
 { 
         "_id" : ObjectId("5cad0b613339f635cd84ddab"),
@@ -39,7 +39,7 @@ STORED FORMAT
         "following_ids" : null
 }
 ```
-id: the user id
+# id: <the user id>
 page_number: the number of the page returned by twitter
 followers_ids: (5000 at most) list of user ids that follows a specific user. null if following is filled.
 following ids: (5000 at most) list of user ids that a secific user follows. null if followers is filled.
