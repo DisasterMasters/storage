@@ -1,3 +1,4 @@
+import base64
 import contextlib
 import copy
 import datetime
@@ -10,10 +11,12 @@ import socket
 import socketserver
 import threading
 import time
+import unicodedata
 from urllib.error import HTTPError
 from urllib.request import urlopen
 from urllib.parse import urlencode
 
+import bson
 import paramiko
 import pymongo
 import tweepy
@@ -382,3 +385,46 @@ def adddates(status, retrieved_at = None):
         r["retrieved_at"] = retrieved_at
 
     return r
+
+def getnicetext(r):
+    try:
+        text = r["extended_tweet"]["full_text"]
+    except KeyError:
+        try:
+            text = r["text"][:getnicetext.regex.search(r["text"]).end()] + r["retweeted_status"]["extended_tweet"]["full_text"]
+        except KeyError:
+            text = r["text"]
+        except AttributeError:
+            text = r["text"]
+
+    return text
+
+getnicetext.regex = re.compile(r"RT @[A-Za-z0-9_]{1,15}: ")
+
+def getcleantext(r):
+    text = getnicetext(r)
+
+    # Normalize Unicode
+    cleantext = unicodedata.normalize("NFC", text)
+    # Remove characters outside BMP (emojis)
+    cleantext = "".join(c for c in cleantext if ord(c) <= 0xFFFF)
+    # Remove newlines and tabs
+    cleantext = cleantext.replace("\n", " ").replace("\t", " ")
+    # Remove HTTP(S) link
+    cleantext = re.sub(r"https?://\S+", "", cleantext)
+    # Remove pic.twitter.com
+    cleantext = re.sub(r"pic.twitter.com/\S+", "", cleantext)
+    # Remove @handle at the start of the tweet
+    cleantext = re.sub(r"\A(@[A-Za-z0-9_]{1,15} ?)*", "", cleantext)
+    # Remove RT @handle:
+    cleantext = re.sub(r"RT @[A-Za-z0-9_]{1,15}:", "", cleantext)
+    # Strip whitespace
+    cleantext = cleantext.strip()
+
+    return cleantext
+
+def bson85_pack(r):
+    return base64.b85encode(bson.BSON.encode(r)).decode()
+
+def bson85_unpack(s):
+    return bson.BSON.decode(base64.b85decode(s.encode()))
