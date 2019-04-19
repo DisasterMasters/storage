@@ -1,4 +1,3 @@
-import base64
 import contextlib
 import copy
 import datetime
@@ -16,7 +15,6 @@ from urllib.error import HTTPError
 from urllib.request import urlopen
 from urllib.parse import urlencode
 
-import bson
 import paramiko
 import pymongo
 import tweepy
@@ -422,9 +420,3 @@ def getcleantext(r):
     cleantext = cleantext.strip()
 
     return cleantext
-
-def bson85_pack(r):
-    return base64.b85encode(bson.BSON.encode(r)).decode()
-
-def bson85_unpack(s):
-    return bson.BSON.decode(base64.b85decode(s.encode()))
