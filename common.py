@@ -358,7 +358,10 @@ def statusconv(status, *, status_permalink = None):
         r["quoted_status"] = statusconv(r["quoted_status"], status_permalink = quoted_status_permalink)
 
     if "retweeted_status" in r:
-        r["retweeted_status"] = statusconv(r["retweeted_status"])
+        try:
+            r["retweeted_status"] = statusconv(r["retweeted_status"])
+        except KeyError:
+            pass
 
     return r
 
