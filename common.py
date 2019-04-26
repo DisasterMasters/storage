@@ -269,6 +269,7 @@ def opencoll(db, collname, *, cleanup = True):
         for i in range(0, len(dups), 800000):
             coll.delete_many({"_id": {"$in": dups[i:i + 800000]}})
 
+        import sys
         print("Deleted %d duplicate entries" % len(dups), file = sys.stderr)
 
 def statusconv(status, *, status_permalink = None):
