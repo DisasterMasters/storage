@@ -124,8 +124,8 @@ class SFTPWrapper:
 
 @contextlib.contextmanager
 def opentunnel(*, hostname = None, port = -1, username = None, password = None, pkey = None):
-    if RUNNING_ON_DA2:
-        yield SFTPWrapper()
+    #if RUNNING_ON_DA2:
+    #    yield SFTPWrapper()
 
     if hostname is None:
         hostname = "da2.eecs.utk.edu"
@@ -269,6 +269,8 @@ def opencoll(db, collname, *, cleanup = True):
         for i in range(0, len(dups), 800000):
             coll.delete_many({"_id": {"$in": dups[i:i + 800000]}})
 
+        print("Deleted %d duplicate entries" % len(dups), file = sys.stderr)
+
 def statusconv(status, *, status_permalink = None):
     """
     Convert tweets obtained with extended REST API to a format similar to the
@@ -354,12 +356,15 @@ def statusconv(status, *, status_permalink = None):
 
         r["quoted_status"] = statusconv(r["quoted_status"], status_permalink = quoted_status_permalink)
 
+    if "retweeted_status" in r:
+        r["retweeted_status"] = statusconv(r["retweeted_status"])
+
     return r
 
 # Convert RFC 2822 date strings in a status to datetime objects
 def adddates(status, retrieved_at = None):
     """
-    Converts RFC 2822 date strings in a status to datetime instancess in the
+    Converts RFC 2822 date strings in a status to datetime instances in the
     status object. This is mainly a nicety; JSON doesn't have a date type, but
     BSON (which Pymongo uses internally) does, and Pymongo automatically
     converts them from/to datetime instances. It also creates the
@@ -378,6 +383,11 @@ def adddates(status, retrieved_at = None):
 
     if "quoted_status" in r:
         r["quoted_status"]["created_at"] = parsedate_to_datetime(r["quoted_status"]["created_at"])
+        r["quoted_status"]["user"]["created_at"] = parsedate_to_datetime(r["quoted_status"]["user"]["created_at"])
+
+    if "retweeted_status" in r:
+        r["retweeted_status"]["created_at"] = parsedate_to_datetime(r["retweeted_status"]["created_at"])
+        r["retweeted_status"]["user"]["created_at"] = parsedate_to_datetime(r["retweeted_status"]["user"]["created_at"])
 
     if retrieved_at is not None:
         r["retrieved_at"] = retrieved_at
