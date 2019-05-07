@@ -1,16 +1,17 @@
 # Finding if a user is Local
-It can be useful to determine if a twitter user is local to a specific area or not. For example, knowing if a news station is local to a city versus a national media company can help figure out if the information they post on twitter is more likely to pertain to a specific city or be national news. We have made a tool called ‘Locality.py’ that scrapes a user’s timeline for their specified location and tries to verify this by looking through 1000 of their followers and tallying up their locations. Then, it looks at the location with the most tallies and determines if it’s a city or state. If the user either had no location specified or the most tallied location doesn’t match the location on the user’s profile then that user is labeled not local.
+Scrapes a user’s timeline for their specified location and tries to verify this by looking through 1000 of their followers and tallying up their locations. Then, it looks at the location with the most tallies and determines if it’s a city or state. If the user either had no location specified or the most tallied location doesn’t match the location on the user’s profile then that user is labeled not local.
 The program can determine if it’s a city or a state because we have created a dictionary of cities and states that the program has access to. This dictionary is in ‘location_dict_better.txt’.
 
 # PARAMETERS
 ```
-def make_network(user_collection_name, network_collection_name, flag):
+def Locality(user):
 ```
-user_collection_name: the location the users are stored in and can be held in two ways.
-                            -a .txt file of screen names (as long as we have these users in mongo)
-                            -a mongodb collection of user objects
-network_collection_name: the collection you want to store this network in the mongodb under twitter.
-flag: pass 'txt' if you are getting users from a .txt file or 'col' if from a collection
+user: a tweepy user json object
+
+make sure you include 
+```
+location_dict_better.txt
+```
 
 # STORED FORMAT
 ```
