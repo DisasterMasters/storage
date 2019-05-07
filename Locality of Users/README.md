@@ -6,12 +6,13 @@ The program can determine if it’s a city or a state because we have created a 
 ```
 def Locality(user):
 ```
-        user: a tweepy user json object
+user: a tweepy user json object
 
 # IMPORTS
 ```
 location_dict_better.txt
 ```
+.txt: holding all the counties, cities, states, and countries 
 
 # STORED FORMAT
 ```
