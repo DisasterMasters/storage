@@ -8,6 +8,7 @@ def Locality(user):
 ```
 user: a tweepy user json object
 
+
 make sure you include 
 ```
 location_dict_better.txt
