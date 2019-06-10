@@ -7,7 +7,7 @@ from Text_Cleaner import tc
 tc_class = tc()
 
 loop{
-  returned_string = tc_class.clean( passed_string, ['html_link',  'pic_link', 'dot', 'at_user', 'hashtag', 'punc', 'lower', 'numbers'] )
+  returned_string = tc_class.clean( passed_string, ['html_link',  'pic_link', 'dot', 'at_user', 'hashtag'] )
 }
 ```
 
