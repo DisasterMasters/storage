@@ -1,5 +1,15 @@
 # Cleaning Statuses Text
-Removes specified substrings from a given string
+Removes specified substrings from a given string based on what arguments are passed into the clean function. The order the arguments are entered into the string is the order they are executed in the function. Because of this, certain orders are prefered, as in the 'new_line' argument typically being the most effective when it is done last.
+
+# How To Use
+```
+from Text_Cleaner import tc
+tc_class = tc()
+
+loop{
+  returned_string = tc_class.clean( passed_string, ['html_link',  'pic_link', 'dot', 'at_user', 'hashtag', 'punc', 'lower', 'numbers'] )
+}
+```
 
 # PARAMETERS
 ```
