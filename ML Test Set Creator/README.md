@@ -1,6 +1,5 @@
-# FINDING IF A USER IS LOCAL
-Scrapes a user’s timeline for their specified location and tries to verify this by looking through 1000 of their followers and tallying up their locations. Then, it looks at the location with the most tallies and determines if it’s a city or state. If the user either had no location specified or the most tallied location doesn’t match the location on the user’s profile then that user is labeled not local.
-The program can determine if it’s a city or a state because we have created a dictionary of cities and states that the program has access to. This dictionary is in ‘location_dict_better.txt’.
+# Creating Test Sets for ML Algorithms
+The program takes in a bunch of intital parameters based on what you want the test set to contain. After setting the initial parameters you run the first block and look at the print out.  From there you decide which column labels need to be used to access the data needed in the secondary parameters which you fill in. The program will then display what it is doing and progress bars along the way as well as the amount of remaining tweets in the subset as it restricts the constraints based on your parameters. after giving you the amount of tweets in the file it creates it saves the xlsx file and prints done.
 
 # INITIAL PARAMETERS
 ```
