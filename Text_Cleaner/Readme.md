@@ -23,6 +23,11 @@ def clean( string, args):
 ```
  ['dot', 'at_user', 'hashtag', 'punc', 'html_link', 'pic_link', 'lower', 'numbers', 'stop_words', 'new_line']
 
+'dot' in list passed to clean to use
+    removes the ". " substring at the begining of the passed string
+
+'at_user' in list passed to clean to use
+    removes any number of "@'string'" substrings from the passed string
 
 'hashtag' in list passed to clean to use
     removes any number of "#'string'" substrings from the passed string
@@ -47,4 +52,13 @@ def clean( string, args):
 
 'new_line' in list passed to clean to use
     removes the "\n" substring and leading and trailing white space from the passed string
+    
+'english' in list passed to clean to use
+    makes any string return "" if not in english
+    
+'retweet' in list passed to clean to use
+    makes any string return "" if a retweet
+    
+'via' in list passed to clean to use
+    removes via from string passed
 ```
