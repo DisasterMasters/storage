@@ -4,16 +4,16 @@ The program takes in a bunch of intital parameters based on what you want the te
 # INITIAL PARAMETERS
 ```
 #name of the collection on mongodb under twitter
-collection_name = 'Tweets_Irma_Scraped'
+collection_name = 'Tweets_Irma_Scraped'   
 
 #number of tweets to comprise the test set at most
-num = 300
+num = 1000
 
-#the name of the csv you want to create
-csv_name = 'announcement_tweets.xlsx'
+#the name of the .xlsx you want to create
+xlsx_name = 'test_Irma_Scraped_urlextract.xlsx'
 
 #set to true if you want the test set to be comprised of only relevant tweets
-remove_irrelevant = True
+remove_irrelevant = False
 
 #set to true if you want the test set to only unique tweets
 remove_duplicates = True
@@ -22,7 +22,7 @@ remove_duplicates = True
 remove_retweets = True
 
 #set to true if you want the test set to be comprised of only tweets in English
-make_english_only = True
+make_english_only = False
 
 #set to true if you want the test set to be comprised of only tweets during the specified dates
 make_only_in_time_frame = False
@@ -32,11 +32,15 @@ date_end = '2017-09-30'
 
 #set to None if not needed
 #otherwise set to list of keywords you want each tweet to contain one of ['governor', 'FEMA']
-only_contain_keywords = ['governor', 'FEMA', 'fema', 'Fema']
+only_contain_keywords = None #['governor', 'FEMA', 'fema', 'Fema']
 
 #set to None if not needed
 #otherwise set to the name of the csv that the training set is comprised of and that you dont want overlapping tweets from
-training_set = '/home/nwest13/twitter/Alexa/Content Analysis/CA_MASTER.csv' #'opinion_new_train.csv'
+training_set = None #'opinion_new_train.csv'
+
+#set to False if you want tweets from news media sources
+#and set to True if you do not want them
+remove_tweets_from_media = False
 ```
 
 # SECONDARY PARAMETERS
