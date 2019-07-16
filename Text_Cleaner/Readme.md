@@ -21,8 +21,8 @@ def clean( string, args):
 
 # Args Detailed
 ```
- ['dot', 'at_user', 'hashtag', 'punc', 'html_link','pic_link', 'lower', 'numbers', 'stop_words', 
- 'new_line', 'english', 'retweet', 'via']
+ ['english', 'dot', 'at_user', 'hashtag', 'html_link', 'pic_link', 
+  'lower', 'numbers', 'stop_words', 'punc', 'new_line', 'retweet', 'via']
 
 'dot' in list passed to clean to use
     removes the ". " substring at the begining of the passed string
