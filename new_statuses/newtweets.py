@@ -8,16 +8,16 @@ from common import *
 
 class QueueListener(tweepy.StreamListener):
     def __init__(self, qu, ev):
-        super().__init__(tweepy.API(parser = tweepy.parsers.JSONParser()))
-        #super().__init__()
+        #super().__init__(tweepy.API(parser = tweepy.parsers.JSONParser()))
+        super().__init__()
 
         self.qu = qu
         self.ev = ev
 
     def on_status(self, status):
         retrieved_at = datetime.datetime.now(datetime.timezone.utc)
-        #r = adddates(status._json, retrieved_at)
-        r = adddates(status, retrieved_at)
+        r = adddates(status._json, retrieved_at)
+        #r = adddates(status, retrieved_at)
 
         self.qu.put(r)
 
