@@ -1,5 +1,4 @@
 import datetime
-from email.utils import parsedate_to_datetime
 import threading
 import time
 
@@ -9,15 +8,16 @@ from common import *
 
 class QueueListener(tweepy.StreamListener):
     def __init__(self, qu, ev):
-        #super().__init__(tweepy.API(parser = tweepy.parsers.JSONParser()))
-        super().__init__()
+        super().__init__(tweepy.API(parser = tweepy.parsers.JSONParser()))
+        #super().__init__()
 
         self.qu = qu
         self.ev = ev
 
     def on_status(self, status):
-        retrieved_at = datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc)
-        r = adddates(status._json, retrieved_at)
+        retrieved_at = datetime.datetime.now(datetime.timezone.utc)
+        #r = adddates(status._json, retrieved_at)
+        r = adddates(status, retrieved_at)
 
         self.qu.put(r)
 
@@ -40,7 +40,13 @@ class NewKeywordThread(threading.Thread):
         self.strm = tweepy.Stream(auth = TWITTER_AUTH, listener = QueueListener(qu, ev))
 
     def run(self):
-        self.strm.filter(track = self.queries)
+        while True:
+            try:
+                self.strm.filter(track = self.queries)
+            except:
+                time.sleep(5)
+            else:
+                break
 
 class NewUsernameThread(threading.Thread):
     def __init__(self, queries, qu, ev):
@@ -52,7 +58,13 @@ class NewUsernameThread(threading.Thread):
         self.strm = tweepy.Stream(auth = TWITTER_AUTH, listener = QueueListener(qu, ev))
 
     def run(self):
-        self.strm.filter(follow = self.queries)
+        while True:
+            try:
+                self.strm.filter(follow = self.queries)
+            except:
+                time.sleep(5)
+            else:
+                break
 
 class NewLocationThread(threading.Thread):
     def __init__(self, queries, qu, ev):
@@ -64,4 +76,10 @@ class NewLocationThread(threading.Thread):
         self.strm = tweepy.Stream(auth = TWITTER_AUTH, listener = QueueListener(qu, ev))
 
     def run(self):
-        self.strm.filter(locations = self.queries)
+        while True:
+            try:
+                self.strm.filter(locations = self.queries)
+            except:
+                time.sleep(5)
+            else:
+                break
