@@ -205,7 +205,7 @@ def opencoll(db, collname, *, cleanup = True):
     coll = db[collname]
 
     index_tab = {
-        re.compile(r"statuses_.*?:.*?_labeled"): [
+        re.compile(r".*?:.*?_labeled"): [
             pymongo.IndexModel([('tags', pymongo.ASCENDING)], name = 'tags_index')
         ],
         re.compile(r"statuses_.*?a.*?:.*"): [
@@ -219,6 +219,12 @@ def opencoll(db, collname, *, cleanup = True):
         re.compile(r"statuses_.*?c.*?:.*"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index', sparse = True),
             pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english', sparse = True)
+        ],
+        re.compile(r"statuses_.*?k.*?:.*"): [
+            pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
+            pymongo.IndexModel([('user.id', pymongo.HASHED)], name = 'user_id_index'),
+            pymongo.IndexModel([('user.screen_name', pymongo.HASHED)], name = 'user_screen_name_index'),
+            pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english')
         ],
         re.compile(r"users_.*?a.*?:.*"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
