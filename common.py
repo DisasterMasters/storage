@@ -205,10 +205,10 @@ def opencoll(db, collname, *, cleanup = True):
     coll = db[collname]
 
     index_tab = {
-        re.compile(r"Labeled\w*"): [
+        re.compile(r"statuses_.*?:.*?_labeled"): [
             pymongo.IndexModel([('tags', pymongo.ASCENDING)], name = 'tags_index')
         ],
-        re.compile(r"(Labeled)?Statuses_[a-zA-Z]+_A"): [
+        re.compile(r"statuses_.*?a.*?:.*"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
             pymongo.IndexModel([('user.id', pymongo.HASHED)], name = 'user_id_index'),
             pymongo.IndexModel([('user.screen_name', pymongo.HASHED)], name = 'user_screen_name_index'),
@@ -216,23 +216,23 @@ def opencoll(db, collname, *, cleanup = True):
             pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
             pymongo.IndexModel([('retrieved_at', pymongo.ASCENDING)], name = 'retrieved_at_index')
         ],
-        re.compile(r"(Labeled)?Statuses_[a-zA-Z]+_C"): [
+        re.compile(r"statuses_.*?c.*?:.*"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index', sparse = True),
             pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english', sparse = True)
         ],
-        re.compile(r"Users_[a-zA-Z]+"): [
+        re.compile(r"users_.*?a.*?:.*"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
             pymongo.IndexModel([('screen_name', pymongo.HASHED)], name = 'screen_name_index'),
             pymongo.IndexModel([('description', pymongo.TEXT)], name = 'description_index'),
             pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
             pymongo.IndexModel([('retrieved_at', pymongo.ASCENDING)], name = 'retrieved_at_index')
         ],
-        re.compile(r"Geolocations_[a-zA-Z]+"): [
+        re.compile(r"geolocations:.*"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
             pymongo.IndexModel([('latitude', pymongo.ASCENDING), ('longitude', pymongo.ASCENDING)], name = 'latitude_longitude_index'),
             pymongo.IndexModel([('geojson', pymongo.GEOSPHERE)], name = 'geojson_index')
         ],
-        re.compile(r"Media_[a-zA-Z]+"): [
+        re.compile(r"media:.*"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
             pymongo.IndexModel([('retrieved_at', pymongo.ASCENDING)], name = 'retrieved_at_index'),
             pymongo.IndexModel([('media.retrieved_at', pymongo.ASCENDING)], name = 'media_retrieved_at_index'),
@@ -404,15 +404,14 @@ def getnicetext(r):
     except KeyError:
         try:
             text = r["text"][:getnicetext.regex.search(r["text"]).end()] + r["retweeted_status"]["extended_tweet"]["full_text"]
-        except KeyError:
-            text = r["text"]
-        except AttributeError:
+        except (KeyError, AttributeError):
             text = r["text"]
 
     return text
 
 getnicetext.regex = re.compile(r"RT @[A-Za-z0-9_]{1,15}: ")
 
+'''
 def getcleantext(r):
     text = getnicetext(r)
 
@@ -434,3 +433,4 @@ def getcleantext(r):
     cleantext = cleantext.strip()
 
     return cleantext
+'''
