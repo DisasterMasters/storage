@@ -38,7 +38,7 @@ class OldKeywordThread(threading.Thread):
                 wait_on_rate_limit = True
             )
 
-            timestamp = datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc)
+            timestamp = datetime.datetime.now(datetime.timezone.utc)
 
             if not results["statuses"]:
                 break
@@ -86,7 +86,7 @@ class OldUsernameThread(threading.Thread):
                 wait_on_rate_limit = True
             )
 
-            timestamp = datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc)
+            timestamp = datetime.datetime.now(datetime.timezone.utc)
 
             if not statuses:
                 skip.add(i)
@@ -148,7 +148,7 @@ class OldLocationThread(threading.Thread):
                 wait_on_rate_limit = True
             )
 
-            timestamp = datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc)
+            timestamp = datetime.datetime.now(datetime.timezone.utc)
 
             if not results["statuses"]:
                 skip.add(i)

@@ -1,5 +1,5 @@
 # Collection to save to
-COLLNAME = "Statuses_MiscPower_A"
+COLLNAME = "statuses_a:power"
 
 # Keywords to search for in both old and new tweets
 KEYWORDS = [

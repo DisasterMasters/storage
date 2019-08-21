@@ -154,6 +154,7 @@ def opentunnel(*, hostname = None, port = -1, username = None, password = None, 
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             mongodb_isopen = (sock.connect_ex(("localhost", 27017)) == 0)
+            sock.detach()
             jupyter_isopen = (sock.connect_ex(("localhost", 8889)) == 0)
 
         mongodb_fwd = NullContext() if mongodb_isopen else LocalForwardServer(conn, 27017, "da1.eecs.utk.edu", 27017)
@@ -199,6 +200,7 @@ def opencoll(db, collname, *, cleanup = True):
 
     :param db pymongo.database.Database: Pymongo database containing collection
     :param collname str: Name of the collection to open
+    :param cleanup bool: If True, attempts to delete duplicate records
     :return: A context manager that yields the collection
     """
 
@@ -322,9 +324,10 @@ def statusconv(status, *, status_permalink = None):
                 try:
                     with urlopen('http://tinyurl.com/api-create.php?' + urlencode({'url': long_url})) as response:
                         short_url = response.read().decode()
-                    break
                 except HTTPError:
                     time.sleep(5)
+                else:
+                    break
 
             status_permalink = {
                 "url": short_url,

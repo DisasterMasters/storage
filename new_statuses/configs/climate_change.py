@@ -1,5 +1,5 @@
 # Collection to save to
-COLLNAME = "Statuses_MiscClimateChange_A"
+COLLNAME = "statuses_a:climate_change"
 
 # Keywords to search for in both old and new tweets
 KEYWORDS = [
