@@ -23,7 +23,7 @@ try:
     if os.environ.get("TWITTER_AUTHKEY") is not None:
         filename = os.environ.get("TWITTER_AUTHKEY")
     else:
-        filename = os.path.join(os.environ["HOME"], "twitter.pem")
+        filename = os.path.join(os.environ["HOME"], "twitter.key")
 
     with open(filename, "r") as fd:
         keys = [line.strip() for line in fd if line.strip()]
