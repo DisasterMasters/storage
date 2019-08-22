@@ -20,10 +20,7 @@ import pymongo
 import tweepy
 
 try:
-    if os.environ.get("TWITTER_AUTHKEY") is not None:
-        filename = os.environ.get("TWITTER_AUTHKEY")
-    else:
-        filename = os.path.join(os.environ["HOME"], "twitter.key")
+    filename = os.environ.get("TWITTER_AUTHKEY", os.path.join(os.environ["HOME"], "twitter.key"))
 
     with open(filename, "r") as fd:
         keys = [line.strip() for line in fd if line.strip()]
@@ -60,7 +57,7 @@ class LocalForwardServer(socketserver.ThreadingTCPServer):
 
     def __init__(self, conn, local_port, remote_hostname, remote_port):
         handler = LocalForwardServer.new_handler(conn, remote_hostname, remote_port)
-        super().__init__(("localhost", local_port), handler)
+        super().__init__(("", local_port), handler)
 
         self.thrd = threading.Thread(target = self.serve_forever)
 
@@ -123,14 +120,11 @@ class SFTPWrapper:
         return os.mkdir(*args, **kwargs)
 
 @contextlib.contextmanager
-def opentunnel(*, hostname = None, port = -1, username = None, password = None, pkey = None):
-    #if RUNNING_ON_DA2:
-    #    yield SFTPWrapper()
-
+def opentunnel(*, hostname = None, port = None, username = None, password = None, pkey = None):
     if hostname is None:
         hostname = "da2.eecs.utk.edu"
 
-    if port < 0:
+    if port is None:
         port = 9244
 
     if username is None:
@@ -162,6 +156,86 @@ def opentunnel(*, hostname = None, port = -1, username = None, password = None, 
 
         with mongodb_fwd, jupyter_fwd, contextlib.closing(conn.open_sftp_client()) as sftp:
             yield sftp
+
+'''
+class MongoCollection(pymongo.Collection):
+    def __enter__(self):
+        index_tab = {
+            re.compile(r".*?:.*?_labeled"): [
+                pymongo.IndexModel([('tags', pymongo.ASCENDING)], name = 'tags_index')
+            ],
+            re.compile(r"statuses_.*?a.*?:.*"): [
+                pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
+                pymongo.IndexModel([('user.id', pymongo.HASHED)], name = 'user_id_index'),
+                pymongo.IndexModel([('user.screen_name', pymongo.HASHED)], name = 'user_screen_name_index'),
+                pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english'),
+                pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
+                pymongo.IndexModel([('retrieved_at', pymongo.ASCENDING)], name = 'retrieved_at_index')
+            ],
+            re.compile(r"statuses_.*?c.*?:.*"): [
+                pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index', sparse = True),
+                pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english', sparse = True)
+            ],
+            re.compile(r"statuses_.*?k.*?:.*"): [
+                pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
+                pymongo.IndexModel([('user.id', pymongo.HASHED)], name = 'user_id_index'),
+                pymongo.IndexModel([('user.screen_name', pymongo.HASHED)], name = 'user_screen_name_index'),
+                pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english')
+            ],
+            re.compile(r"users_.*?a.*?:.*"): [
+                pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
+                pymongo.IndexModel([('screen_name', pymongo.HASHED)], name = 'screen_name_index'),
+                pymongo.IndexModel([('description', pymongo.TEXT)], name = 'description_index'),
+                pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
+                pymongo.IndexModel([('retrieved_at', pymongo.ASCENDING)], name = 'retrieved_at_index')
+            ],
+            re.compile(r"geolocations:.*"): [
+                pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
+                pymongo.IndexModel([('latitude', pymongo.ASCENDING), ('longitude', pymongo.ASCENDING)], name = 'latitude_longitude_index'),
+                pymongo.IndexModel([('geojson', pymongo.GEOSPHERE)], name = 'geojson_index')
+            ],
+            re.compile(r"media:.*"): [
+                pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
+                pymongo.IndexModel([('retrieved_at', pymongo.ASCENDING)], name = 'retrieved_at_index'),
+                pymongo.IndexModel([('media.retrieved_at', pymongo.ASCENDING)], name = 'media_retrieved_at_index'),
+                pymongo.IndexModel([('media.local_url', pymongo.ASCENDING)], name = 'media_local_url_index')
+            ]
+        }
+
+        # Set up indices
+        indices = sum((v for k, v in index_tab.items() if k.fullmatch(collname) is not None), [])
+
+        if indices:
+            self.create_indexes(indices)
+
+        return self
+
+    def __exit__(self, type, value, tb):
+        index_names = {i["name"] for i in self.list_indexes()}
+
+        # Remove duplicates
+        if "id_index" in index_names:
+            dups = []
+            ids = set()
+
+            with contextlib.closing(self.find(projection = ["id"], no_cursor_timeout = True)) as cursor:
+                if "retrieved_at_index" in index_names:
+                    cursor = cursor.sort("retrieved_at", direction = pymongo.DESCENDING)
+
+                for r in cursor:
+                    if 'id' in r:
+                        if r['id'] in ids:
+                            dups.append(r['_id'])
+
+                        ids.add(r['id'])
+
+            for i in range(0, len(dups), 800000):
+                coll.delete_many({"_id": {"$in": dups[i:i + 800000]}})
+
+class MongoDatabase(pymongo.Database):
+    def __getattr__(self, key):
+        return MongoCollection(self, key)
+'''
 
 @contextlib.contextmanager
 def opendb(*, hostname = None, dbname = "twitter"):
