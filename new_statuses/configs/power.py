@@ -3,7 +3,6 @@ COLLNAME = "statuses_a:power"
 
 # Keywords to search for in both old and new tweets
 KEYWORDS = [
-    "power",
     "electricity",
     "power loss",
     "power recovery",
