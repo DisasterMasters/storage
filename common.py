@@ -18,6 +18,8 @@ from urllib.parse import urlencode
 import paramiko
 import pymongo
 import tweepy
+from fuzzywuzzy import fuzz
+from nltk.corpus import stopwords
 
 try:
     filename = os.environ.get("TWITTER_AUTHKEY", os.path.join(os.environ["HOME"], "twitter.key"))
@@ -493,6 +495,37 @@ def getnicetext(r):
     return text
 
 getnicetext.regex = re.compile(r"RT @[A-Za-z0-9_]{1,15}: ")
+
+class IntelligentSearch:
+    regex = re.compile(r" (\w+ )+|\w+")
+    stopwords = frozenset(stopwords.words('english') + ["http", "https", "www", "com", "net", "org"])
+
+    def __init__(self, colls, text, **kwargs):
+        self.colls = colls
+        self.text = text
+        self.kwargs = kwargs
+
+        clauses = []
+
+        for match in IntelligentSearch.regex.finditer(" " + self.text + " "):
+            clause = match.group().strip()
+
+            if clause not in IntelligentSearch.stopwords:
+                if " " in clause:
+                    clause = '"' + clause + '"'
+
+                clauses.append(clause)
+
+        self.query = {"$text": {"$search": ' '.join(clauses)}}
+
+    def __iter__(self):
+        for coll in self.colls:
+            with contextlib.closing(coll.find(self.query, no_cursor_timeout = True, **self.kwargs)) as cursor:
+                for r in cursor:
+                    r["collection"] = coll.name
+                    r["score"] = fuzz.WRatio(r["text"], self.text)
+
+                    yield r
 
 '''
 def getcleantext(r):
