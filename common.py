@@ -16,10 +16,8 @@ from urllib.error import HTTPError
 from urllib.request import urlopen
 from urllib.parse import urlencode
 
-from oauth2client.service_account import ServiceAccountCredentials
 import paramiko
 import pymongo
-from tweepy import OAuthHandler
 from fuzzywuzzy import fuzz
 from nltk.corpus import stopwords
 
@@ -36,24 +34,26 @@ __all__ = [
 ]
 
 try:
-    filename = os.environ.get("TWITTER_AUTHKEY", os.path.join(os.environ["HOME"], "twitter.key"))
+    from tweepy import OAuthHandler
+
+    filename = os.environ.get("TWITTER_CREDENTIALS", os.path.join(os.environ["HOME"], "twitter_creds.json"))
 
     with open(filename, "r") as fd:
-        keys = [line.strip() for line in fd if line.strip()]
-
-        assert len(keys) == 4
+        creds = json.load(file)
 
         # Twitter API authentication token for this project
-    TWITTER_AUTHKEY = OAuthHandler(keys[0], keys[1])
-    TWITTER_AUTHKEY.set_access_token(keys[2], keys[3])
+    TWITTER_CREDENTIALS = OAuthHandler(creds["consumer"], creds["consumer_secret"])
+    TWITTER_AUTHKEY.set_access_token(creds["access_token"], creds["access_token_secret"])
 except:
     TWITTER_AUTHKEY = None
 
 try:
+    from oauth2client.service_account import ServiceAccountCredentials
+
     filename = os.environ.get("GSPREAD_CREDENTIALS", os.path.join(os.environ["HOME"], "gspread_creds.json"))
 
     with open(filename, "r") as file:
-        credentials = json.load(file)
+        creds = json.load(file)
 
     scope = [
         "https://spreadsheets.google.com/feeds",
@@ -62,11 +62,12 @@ try:
         "https://www.googleapis.com/auth/drive"
     ]
 
-    GSPREAD_CREDENTIALS = ServiceAccountCredentials.from_json_keyfile_name(credentials, scope)
+    GSPREAD_CREDENTIALS = ServiceAccountCredentials.from_json_keyfile_name(creds, scope)
 except:
     GSPREAD_CREDENTIALS = None
 
 # To maintain backwards-compatibility
+TWITTER_AUTHKEY = TWITTER_CREDENTIALS
 TWITTER_AUTH = TWITTER_AUTHKEY
 
 RUNNING_ON_DA2 = socket.gethostname() == "75f7e392a7ec"
