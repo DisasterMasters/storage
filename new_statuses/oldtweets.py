@@ -18,7 +18,7 @@ class OldKeywordThread(threading.Thread):
     def __init__(self, queries, qu, ev):
         super().__init__()
 
-        self.queries = " OR ".join(queries)
+        self.queries = " OR ".join(queries) + " -filter:retweets"
         self.qu = qu
         self.ev = ev
 

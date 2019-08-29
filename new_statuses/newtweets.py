@@ -36,7 +36,7 @@ class NewKeywordThread(threading.Thread):
     def __init__(self, queries, qu, ev):
         super().__init__()
 
-        self.queries = queries
+        self.queries = list(queries) + ["-filter:retweets"]
 
         self.strm = tweepy.Stream(auth = TWITTER_AUTH, listener = QueueListener(qu, ev))
 
