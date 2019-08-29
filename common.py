@@ -85,65 +85,71 @@ except AttributeError: # Fix for Python <3.7
         def __exit__(self, type, value, traceback):
             pass
 
-class LocalForwardServer(socketserver.ThreadingTCPServer):
+class TunnelHandler(socketserver.BaseRequestHandler):
+    def setup(self):
+        self.transport = self.server.transport
+        self.remote_hostname = self.server.remote_hostname
+        self.remote_port = self.server.remote_port
+
+    def handle(self):
+        try:
+            self.chan = self.transport.open_channel(
+                "direct-tcpip",
+                (self.remote_hostname, self.remote_port),
+                self.request.getpeername(),
+            )
+        except:
+            return
+
+        if self.chan is None:
+            return
+
+        while True:
+            r, _, _ = select.select([self.request, self.chan], [], [])
+
+            if self.request in r:
+                data = self.request.recv(4096)
+
+                if len(data) == 0:
+                    break
+
+                self.chan.send(data)
+
+            if self.chan in r:
+                data = self.chan.recv(4096)
+
+                if len(data) == 0:
+                    break
+
+                self.request.send(data)
+
+    def finish(self):
+        self.chan.close()
+        self.request.close()
+
+class LocalForwardServer(socketserver.ThreadingTCPServer, threading.Thread):
     daemon_threads = True
     allow_reuse_address = True
 
-    def __init__(self, conn, local_port, remote_hostname, remote_port):
-        handler = LocalForwardServer.new_handler(conn, remote_hostname, remote_port)
-        super().__init__(("", local_port), handler)
+    def __init__(self, transport, local_port, remote_hostname, remote_port):
+        socketserver.ThreadingTCPServer.__init__(self, ("", local_port), TunnelHandler)
+        threading.Thread.__init__(self)
 
-        self.thrd = threading.Thread(target = self.serve_forever)
+        self.transport = transport
+        self.remote_hostname = remote_hostname
+        self.remote_port = remote_port
 
     def __enter__(self):
-        self.thrd.start()
+        self.start()
 
     def __exit__(self, type, value, traceback):
         self.shutdown()
-        self.thrd.join()
+        self.join()
 
         self.server_close()
 
-    @staticmethod
-    def new_handler(conn, hostname, port):
-        # Shamelessly stolen from <http://tinyurl.com/y6dxrmyc>
-        class TunnelHandler(socketserver.BaseRequestHandler):
-            def handle(self):
-                try:
-                    chan = conn.open_channel(
-                        "direct-tcpip",
-                        (hostname, port),
-                        self.request.getpeername(),
-                    )
-                except:
-                    return
-
-                if chan is None:
-                    return
-
-                while True:
-                    r, _, _ = select.select([self.request, chan], [], [])
-
-                    if self.request in r:
-                        data = self.request.recv(1024)
-
-                        if len(data) == 0:
-                            break
-
-                        chan.send(data)
-
-                    if chan in r:
-                        data = chan.recv(1024)
-
-                        if len(data) == 0:
-                            break
-
-                        self.request.send(data)
-
-                chan.close()
-                self.request.close()
-
-        return TunnelHandler
+    def run(self):
+        self.serve_forever()
 
 class SFTPWrapper:
     # TODO: Add more functions here
