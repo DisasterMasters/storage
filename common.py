@@ -3,6 +3,7 @@ import copy
 import datetime
 from email.utils import parsedate_to_datetime
 import io
+import json
 import os
 import re
 import select
@@ -15,9 +16,10 @@ from urllib.error import HTTPError
 from urllib.request import urlopen
 from urllib.parse import urlencode
 
+from oauth2client.service_account import ServiceAccountCredentials
 import paramiko
 import pymongo
-import tweepy
+from tweepy import OAuthHandler
 from fuzzywuzzy import fuzz
 from nltk.corpus import stopwords
 
@@ -42,10 +44,27 @@ try:
         assert len(keys) == 4
 
         # Twitter API authentication token for this project
-        TWITTER_AUTHKEY = tweepy.OAuthHandler(keys[0], keys[1])
-        TWITTER_AUTHKEY.set_access_token(keys[2], keys[3])
+    TWITTER_AUTHKEY = OAuthHandler(keys[0], keys[1])
+    TWITTER_AUTHKEY.set_access_token(keys[2], keys[3])
 except:
     TWITTER_AUTHKEY = None
+
+try:
+    filename = os.environ.get("GSPREAD_CREDENTIALS", os.path.join(os.environ["HOME"], "gspread_creds.json"))
+
+    with open(filename, "r") as file:
+        credentials = json.load(file)
+
+    scope = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive.file",
+        "https://www.googleapis.com/auth/drive"
+    ]
+
+    GSPREAD_CREDENTIALS = ServiceAccountCredentials.from_json_keyfile_name(credentials, scope)
+except:
+    GSPREAD_CREDENTIALS = None
 
 # To maintain backwards-compatibility
 TWITTER_AUTH = TWITTER_AUTHKEY
@@ -295,28 +314,29 @@ def opencoll(db, collname, *, cleanup = True):
     coll = db[collname]
 
     index_tab = {
-        re.compile(r".*?:.*?_labeled"): [
+        re.compile(r"[a-z_]*:[^_]*_labeled"): [
             pymongo.IndexModel([('tags', pymongo.ASCENDING)], name = 'tags_index')
         ],
-        re.compile(r"statuses_.*?a.*?:.*"): [
+        re.compile(r"statuses_[b-z]*a[b-z]*:.*"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
             pymongo.IndexModel([('user.id', pymongo.HASHED)], name = 'user_id_index'),
             pymongo.IndexModel([('user.screen_name', pymongo.HASHED)], name = 'user_screen_name_index'),
             pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english'),
+            pymongo.IndexModel([('lang', pymongo.ASCENDING)], name = 'lang_index'),
             pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
             pymongo.IndexModel([('retrieved_at', pymongo.ASCENDING)], name = 'retrieved_at_index')
         ],
-        re.compile(r"statuses_.*?c.*?:.*"): [
+        re.compile(r"statuses_[abd-z]*c[abd-z]*:.*"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index', sparse = True),
             pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english', sparse = True)
         ],
-        re.compile(r"statuses_.*?k.*?:.*"): [
+        re.compile(r"statuses_[a-jl-z]*k[a-jl-z]*:.*"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
             pymongo.IndexModel([('user.id', pymongo.HASHED)], name = 'user_id_index'),
             pymongo.IndexModel([('user.screen_name', pymongo.HASHED)], name = 'user_screen_name_index'),
             pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english')
         ],
-        re.compile(r"users_.*?a.*?:.*"): [
+        re.compile(r"users_[b-z]*a[b-z]*:.*"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
             pymongo.IndexModel([('screen_name', pymongo.HASHED)], name = 'screen_name_index'),
             pymongo.IndexModel([('description', pymongo.TEXT)], name = 'description_index'),
