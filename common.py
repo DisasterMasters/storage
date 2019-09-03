@@ -3,6 +3,7 @@ import copy
 import datetime
 from email.utils import parsedate_to_datetime
 import io
+import itertools
 import json
 import os
 import re
@@ -301,25 +302,8 @@ def opendb(*, hostname = None, dbname = "twitter"):
     with contextlib.closing(pymongo.MongoClient(hostname)) as conn:
         yield conn[dbname]
 
-# Open a default collection (setting up indices and removing duplicates)
-@contextlib.contextmanager
-def opencoll(db, collname, *, cleanup = True):
-    """
-    Opens a collection in the database. This does a little more than just
-    subscripting the database. First, before yielding the collection, it sets
-    up the indices of the collection, depending on the collection name. Then,
-    before losing the collection, it removes any records with duplicate IDs it
-    finds in the collection. Older records are prioritized for removal over
-    newer ones.
 
-    :param db pymongo.database.Database: Pymongo database containing collection
-    :param collname str: Name of the collection to open
-    :param cleanup bool: If True, attempts to delete duplicate records
-    :return: A context manager that yields the collection
-    """
-
-    coll = db[collname]
-
+def addindices(coll):
     index_tab = {
         re.compile(r"[a-z_]*:[^_]*_labeled"): [
             pymongo.IndexModel([('tags', pymongo.ASCENDING)], name = 'tags_index')
@@ -338,6 +322,12 @@ def opencoll(db, collname, *, cleanup = True):
             pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english', sparse = True)
         ],
         re.compile(r"statuses_[a-jl-z]*k[a-jl-z]*:.*"): [
+            pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
+            pymongo.IndexModel([('user.id', pymongo.HASHED)], name = 'user_id_index'),
+            pymongo.IndexModel([('user.screen_name', pymongo.HASHED)], name = 'user_screen_name_index'),
+            pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english')
+        ],
+        re.compile(r"statuses_[a-rt-z]*s[a-rt-z]*:.*"): [
             pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
             pymongo.IndexModel([('user.id', pymongo.HASHED)], name = 'user_id_index'),
             pymongo.IndexModel([('user.screen_name', pymongo.HASHED)], name = 'user_screen_name_index'),
@@ -363,37 +353,55 @@ def opencoll(db, collname, *, cleanup = True):
         ]
     }
 
-    # Set up indices
     indices = sum((v for k, v in index_tab.items() if k.fullmatch(collname) is not None), [])
 
     if indices:
         coll.create_indexes(indices)
 
-    index_names = {i["name"] for i in coll.list_indexes()}
-
-    yield coll
+def rmdups(coll):
+    indices = dict(itertools.chain.from_iterable(i["key"].items() for i in coll.list_indices()))
+    dups = []
 
     # Remove duplicates
-    if "id_index" in index_names and cleanup:
-        dups = []
-        ids = set()
-
+    if indices.get("id") is not None:
         with contextlib.closing(coll.find(projection = ["id"], no_cursor_timeout = True)) as cursor:
-            if "retrieved_at_index" in index_names:
+            retrieved_at = indices.get("retrieved_at")
+
+            if retrieved_at == pymongo.ASCENDING or retrieved_at == pymongo.DESCENDING:
                 cursor = cursor.sort("retrieved_at", direction = pymongo.DESCENDING)
 
-            for r in cursor:
-                if 'id' in r:
-                    if r['id'] in ids:
-                        dups.append(r['_id'])
+            ids = set()
 
-                    ids.add(r['id'])
+            for r in cursor:
+                if "id" in r:
+                    if r["id"] in ids:
+                        dups.append(r["_id"])
+
+                    ids.add(r["id"])
 
         for i in range(0, len(dups), 800000):
             coll.delete_many({"_id": {"$in": dups[i:i + 800000]}})
 
-        #import sys
-        #print("Deleted %d duplicate entries" % len(dups), file = sys.stderr)
+    return len(dups)
+
+# Open a default collection (setting up indices and removing duplicates)
+@contextlib.contextmanager
+def opencoll(db, collname, *, cleanup = True):
+    """
+    Opens a collection in the database. This does a little more than just
+    subscripting the database. First, before yielding the collection, it sets
+    up the indices of the collection, depending on the collection name. Then,
+    before losing the collection, it removes any records with duplicate IDs it
+    finds in the collection. Older records are prioritized for removal over
+    newer ones.
+
+    :param db pymongo.database.Database: Pymongo database containing collection
+    :param collname str: Name of the collection to open
+    :param cleanup bool: If True, attempts to delete duplicate records
+    :return: A context manager that yields the collection
+    """
+
+    yield db[collname]
 
 def statusconv(status, *, status_permalink = None):
     """
