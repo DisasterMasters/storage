@@ -19,7 +19,7 @@ from urllib.parse import urlencode
 
 import paramiko
 import pymongo
-from fuzzywuzzy import fuzz
+from fuzzywuzzy import process as fuzz_process
 from nltk.corpus import stopwords
 
 __all__ = [
@@ -28,10 +28,12 @@ __all__ = [
     "RUNNING_ON_DA2",
     "opentunnel",
     "opendb",
+    "addindices",
+    "rmdups",
     "opencoll",
     "statusconv",
     "adddates",
-    "IntelligentSearch"
+    "searchcoll"
 ]
 
 try:
@@ -543,36 +545,29 @@ def getnicetext(r):
 
 getnicetext.regex = re.compile(r"RT @[A-Za-z0-9_]{1,15}: ")
 
-class IntelligentSearch:
-    regex = re.compile(r" (\w+ )+|\w+")
-    stopwords = frozenset(stopwords.words('english') + ["http", "https", "www", "com", "net", "org"])
+def searchcoll(coll, text, *args, **kwargs):
+    clauses = []
 
-    def __init__(self, colls, text, **kwargs):
-        self.colls = colls
-        self.text = text
-        self.kwargs = kwargs
+    for match in IntelligentSearch.regex.finditer(" " + self.text + " "):
+        clause = match.group().strip()
 
-        clauses = []
+        if clause not in IntelligentSearch.stopwords:
+            if " " in clause:
+                clause = '"' + clause + '"'
 
-        for match in IntelligentSearch.regex.finditer(" " + self.text + " "):
-            clause = match.group().strip()
+            clauses.append(clause)
 
-            if clause not in IntelligentSearch.stopwords:
-                if " " in clause:
-                    clause = '"' + clause + '"'
+    mongo_query = {"$text": {"$search": ' '.join(clauses)}}
 
-                clauses.append(clause)
+    with contextlib.closing(coll.find(mongo_query, *args, no_cursor_timeout = True, **kwargs)) as cursor:
+        for r, score in fuzz_process.extractWithoutOrder({"text": text}, cursor, processor = lambda r: r["text"]):
+            r["collection"] = coll.name
+            r["score"] = score
 
-        self.query = {"$text": {"$search": ' '.join(clauses)}}
+            yield r
 
-    def __iter__(self):
-        for coll in self.colls:
-            with contextlib.closing(coll.find(self.query, no_cursor_timeout = True, **self.kwargs)) as cursor:
-                for r in cursor:
-                    r["collection"] = coll.name
-                    r["score"] = fuzz.WRatio(r["text"], self.text)
-
-                    yield r
+searchcoll.regex = re.compile(r" (\w+ )+|\w+")
+searchcoll.stopwords = frozenset(stopwords.words('english') + ["http", "https", "www", "com", "net", "org"])
 
 '''
 def getcleantext(r):
