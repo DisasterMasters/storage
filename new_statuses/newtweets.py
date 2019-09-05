@@ -7,6 +7,12 @@ import tweepy
 
 from common import *
 
+__all__ = [
+    "NewKeywordThread",
+    "NewUsernameThread",
+    "NewLocationThread"
+]
+
 class QueueListener(tweepy.StreamListener):
     def __init__(self, qu, ev):
         super().__init__()
@@ -38,7 +44,7 @@ class NewKeywordThread(threading.Thread):
 
         self.queries = list(queries)
 
-        self.strm = tweepy.Stream(auth = TWITTER_AUTH, listener = QueueListener(qu, ev))
+        self.strm = tweepy.Stream(auth = TWITTER_CREDENTIALS, listener = QueueListener(qu, ev))
 
     def run(self):
         while True:
@@ -53,10 +59,10 @@ class NewUsernameThread(threading.Thread):
     def __init__(self, queries, qu, ev):
         super().__init__()
 
-        api = tweepy.API(TWITTER_AUTH)
+        api = tweepy.API(TWITTER_CREDENTIALS)
         self.queries = [api.get_user(username).id_str for username in queries]
 
-        self.strm = tweepy.Stream(auth = TWITTER_AUTH, listener = QueueListener(qu, ev))
+        self.strm = tweepy.Stream(auth = TWITTER_CREDENTIALS, listener = QueueListener(qu, ev))
 
     def run(self):
         while True:
@@ -74,7 +80,7 @@ class NewLocationThread(threading.Thread):
         self.queries = [i for bbox in queries for i in bbox]
         assert len(self.queries) % 4 == 0
 
-        self.strm = tweepy.Stream(auth = TWITTER_AUTH, listener = QueueListener(qu, ev))
+        self.strm = tweepy.Stream(auth = TWITTER_CREDENTIALS, listener = QueueListener(qu, ev))
 
     def run(self):
         while True:

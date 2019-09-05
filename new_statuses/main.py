@@ -18,26 +18,6 @@ def print_status(status):
         format_datetime(status["retrieved_at"])
     ))
 
-def put_statuses_into_collection(coll, qu):
-    while True:
-        status = qu.get()
-
-        if status is signal.SIGINT:
-            print("SIGINT received")
-            break
-        elif type(status) is list and type(status[0]) is dict:
-            # For debugging
-            print("\033[1m\033[31mGot some old tweets\033[0m")
-
-            for r in status:
-                print_status(r)
-
-            coll.insert_many(status, ordered = False)
-        elif type(status) is dict:
-            print_status(status)
-
-            coll.insert_one(status)
-
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: " + sys.argv[0] + "<config_file.py>", file = sys.stderr)
@@ -49,12 +29,6 @@ if __name__ == "__main__":
         qu = queue.Queue()
 
     ev = threading.Event()
-
-    def sigint(sig, frame):
-        ev.set()
-        qu.put(signal.SIGINT)
-
-    signal.signal(signal.SIGINT, sigint)
 
     pool = []
     opts = {}
@@ -94,8 +68,27 @@ if __name__ == "__main__":
         pool.append(NewLocationThread(new_locations, qu, ev))
         pool[-1].start()
 
-    with opendb() as db, opencoll(db, opts["COLLNAME"]) as coll:
-        put_statuses_into_collection(coll, qu)
+    with opendb() as db:
+        coll = db[opts["COLLNAME"]]
 
-        for thrd in pool:
-            thrd.join()
+        try:
+            while True:
+                status = qu.get()
+
+                elif type(status) is list and type(status[0]) is dict:
+                    # For debugging
+                    print("\033[1m\033[31mGot some old tweets\033[0m")
+
+                    for r in status:
+                        print_status(r)
+
+                    coll.insert_many(status, ordered = False)
+                elif type(status) is dict:
+                    print_status(status)
+
+                    coll.insert_one(status)
+        except KeyboardInterrupt:
+            ev.set()
+
+    for thrd in pool:
+        thrd.join()

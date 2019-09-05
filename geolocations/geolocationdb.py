@@ -1,6 +1,6 @@
 import time
 import shelve
-import threading
+import multiprocessing as mp
 
 from streetaddress import StreetAddress
 
@@ -12,12 +12,12 @@ class GeolocationDB:
         self.db = shelve.open(filename, "c")
 
         self.api = geopy.geocoders.Nominatim(
-            user_agent = "curent2-utk",
+            user_agent = "curent-utk",
             country_bias = "USA"
         )
 
-        self.dt = float('-inf')
-        self.mut = threading.Lock()
+        self.dt = mp.Value('d', float('-inf'), lock = False)
+        self.mut = mp.Lock()
 
     def __enter__(self):
         return self
@@ -54,12 +54,12 @@ class GeolocationDB:
             with self.mut:
                 # Nominatim allows _at most_ one thread making one request per second
                 # <https://operations.osmfoundation.org/policies/nominatim/>
-                dt = time.perf_counter()
+                dt = time.time()
 
-                if dt - self.dt < 1.1:
-                    time.sleep(1.1 - dt + self.dt)
+                if dt - self.dt.value < 1.1:
+                    time.sleep(1.1 - dt + self.dt.value)
 
-                self.dt = dt
+                self.dt.value = dt
 
                 try:
                     request = self.api.geocode(dbquery, geometry = "geojson")

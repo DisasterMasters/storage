@@ -1,3 +1,5 @@
+## TAKE A CLOSER LOOK AT THIS
+
 import contextlib
 import datetime
 from email.utils import format_datetime
@@ -94,14 +96,14 @@ def extract_kp_des(orb, filedata):
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: %s <collection_from> <collection_to>", file = sys.stderr)
+        print("Usage: " + sys.argv[0] + " <statuses_collection> <media_collection>", file = sys.stderr)
         exit(-1)
 
     with contextlib.ExitStack() as exitstack:
         sftp = exitstack.enter_context(opentunnel())
         db = exitstack.enter_context(opendb())
-        coll_from = exitstack.enter_context(opencoll(db, sys.argv[1]))
-        coll_to = exitstack.enter_context(opencoll(db, sys.argv[2]))
+        coll_from = db[sys.argv[1]]
+        coll_to = db[sys.argv[2]]
 
         colldir = posixpath.join("/", "home", "nwest13", "Media", sys.argv[2][(sys.argv[2].find("_") + 1):])
         orb = cv2.ORB_create()
@@ -139,7 +141,7 @@ if __name__ == "__main__":
                 if filedata is None:
                     continue
 
-                retrieved_at = datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc)
+                retrieved_at = datetime.datetime.now(datetime.timezone.utc)
 
                 sha256sum = hashlib.sha256()
                 sha256sum.update(filedata)

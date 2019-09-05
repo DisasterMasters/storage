@@ -1,16 +1,18 @@
-import copy
 import datetime
-from email.utils import parsedate_to_datetime
 import itertools
-from math import sin, cos, atan, sqrt, radians
+import operator
 import re
 import threading
-from urllib.request import urlopen
-from urllib.parse import urlencode
 
 import tweepy
 
 from common import *
+
+__all__ = [
+    "OldKeywordThread",
+    "OldUsernameThread",
+    "OldLocationThread"
+]
 
 class OldKeywordThread(threading.Thread):
     max_id_regex = re.compile(r"max_id=(?P<max_id>\d+)")
@@ -22,7 +24,7 @@ class OldKeywordThread(threading.Thread):
         self.qu = qu
         self.ev = ev
 
-        self.api = tweepy.API(TWITTER_AUTH, parser = tweepy.parsers.JSONParser())
+        self.api = tweepy.API(TWITTER_CREDENTIALS, parser = tweepy.parsers.JSONParser())
 
     def run(self):
         max_id = None
@@ -53,7 +55,7 @@ class OldKeywordThread(threading.Thread):
                 max_id_match = OldKeywordThread.max_id_regex.search(results["search_metadata"]["next_results"])
                 max_id = int(max_id_match.group("max_id"))
             except:
-                max_id = min(results["statuses"], key = lambda r: r["id"])["id"] - 1
+                max_id = min(results["statuses"], key = operator.itemgetter("id"))["id"] - 1
 
 class OldUsernameThread(threading.Thread):
     def __init__(self, queries, qu, ev):
@@ -63,7 +65,7 @@ class OldUsernameThread(threading.Thread):
         self.qu = qu
         self.ev = ev
 
-        self.api = tweepy.API(TWITTER_AUTH, parser = tweepy.parsers.JSONParser())
+        self.api = tweepy.API(TWITTER_CREDENTIALS, parser = tweepy.parsers.JSONParser())
 
     def run(self):
         max_ids = {user: None for user in self.queries}
@@ -90,11 +92,9 @@ class OldUsernameThread(threading.Thread):
 
             if not statuses:
                 skip.add(i)
-                continue
-
-            self.qu.put([adddates(statusconv(r), timestamp) for r in results])
-
-            max_id = statuses[-1]["id"] - 1
+            else:
+                self.qu.put([adddates(statusconv(r), timestamp) for r in results])
+                max_ids[i] = statuses[-1]["id"] - 1
 
 class OldLocationThread(threading.Thread):
     max_id_regex = re.compile(r"max_id=(?P<max_id>\d+)")
@@ -125,7 +125,7 @@ class OldLocationThread(threading.Thread):
         self.qu = qu
         self.ev = ev
 
-        self.api = tweepy.API(TWITTER_AUTH, parser = tweepy.parsers.JSONParser())
+        self.api = tweepy.API(TWITTER_CREDENTIALS, parser = tweepy.parsers.JSONParser())
 
     def run(self):
         max_ids = {user: None for user in self.queries}

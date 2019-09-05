@@ -13,7 +13,7 @@ from common import *
 
 FLUSH_FREQ = 450
 ID_REGEX = re.compile(rb"[0-9]{15,}")
-CACHE_FILENAME = sys.argv[-1] + ".pkl"
+CACHE_FILENAME = sys.argv[-1] + ".pickle"
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
@@ -69,7 +69,7 @@ if __name__ == "__main__":
 
     # Load cached objects, if they exist
     try:
-        with open(sys.argv[1] + ".pkl", "rb") as fd:
+        with open(CACHE_FILENAME, "rb") as fd:
             while True:
                 try:
                     cached_statuses, cached_failures = pickle.load(self.fd)
@@ -98,7 +98,7 @@ if __name__ == "__main__":
                 wait_on_rate_limit = True
             )
 
-            retrieved_at = datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc)
+            retrieved_at = datetime.datetime.now(datetime.timezone.utc)
 
         except tweepy.TweepError:
             failures.append(id)
@@ -112,5 +112,6 @@ if __name__ == "__main__":
                 pickle.dump((statuses[-FLUSH_FREQ:], failures[-FLUSH_FREQ:]), fd)
 
     # Add the statuses to the collection
-    with opendb() as db, opencoll(db, sys.argv[-1]) as coll:
+    with opendb() as db:
+        coll = db[sys.argv[-1]]
         coll.insert_many(statuses, ordered = False)

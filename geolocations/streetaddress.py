@@ -3,8 +3,10 @@ import re
 
 import nltk
 
+__all__ = ["StreetAddress"]
+
 # Obtained from <https://pe.usps.com/text/pub28/28apc_002.htm>
-STREET_SUFFIXES = {
+STREET_SUFFIXES = frozenset([
     'ALLEE', 'ALLEY', 'ALLY', 'ALY', 'ANEX', 'ANNEX', 'ANNX', 'ANX', 'ARC',
     'ARCADE', 'AV', 'AVE', 'AVEN', 'AVENU', 'AVENUE', 'AVN', 'AVNUE', 'BAYOO',
     'BAYOU', 'BCH', 'BEACH', 'BEND', 'BG', 'BGS', 'BLF', 'BLFS', 'BLUF',
@@ -70,7 +72,7 @@ STREET_SUFFIXES = {
     'VILLIAGE', 'VIS', 'VIST', 'VISTA', 'VL', 'VLG', 'VLGS', 'VLLY', 'VLY',
     'VLYS', 'VST', 'VSTA', 'VW', 'VWS', 'WALK', 'WALKS', 'WALL', 'WAY',
     'WAYS', 'WELL', 'WELLS', 'WL', 'WLS', 'WY', 'XING', 'XRD', 'XRDS'
-}
+])
 
 STATE_MAP = {
     'AL': 'Alabama',
@@ -126,7 +128,7 @@ STATE_MAP = {
 }
 
 STATE_INVMAP = {v: k for k, v in STATE_MAP.items()}
-STATE_SET = set(STATE_MAP.values())
+STATE_SET = frozenset(STATE_MAP.values())
 
 REGEX_LINE1 = re.compile(r'(?P<house_number>[0-9]{1,10}) (?P<street>([A-Z][a-z]* ?)+? (?P<street_suffix>[A-Z][a-z]{1,9}))\.?( [NSEW]{1,2})?')
 REGEX_LINE2 = re.compile(r'(?P<city>([A-Z][a-z]+ ?)+?),? (?P<state>[A-Z]{2})( (?P<zip_code>[0-9]{5}(-[0-9]{4})?))?')
@@ -144,7 +146,7 @@ NP: {<(NNP.?|CD)>+}
     {<DT|PP\$>?<(JJ|CD)>*<(NN[A-Z]?|CD)>+}
 ''')
 
-class StreetAddress(collections.namedtuple('StreetAddress', 'house_number street city state zip_code raw')):
+class StreetAddress(collections.namedtuple('StreetAddress', ['house_number', 'street', 'city', 'state', 'zip_code', 'raw'])):
     def __str__(self):
         addrstr = ""
 

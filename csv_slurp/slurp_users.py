@@ -14,7 +14,7 @@ from common import *
 
 FLUSH_FREQ = 450
 ID_REGEX = re.compile(rb"@[A-Za-z0-9_]{1,15}")
-CACHE_FILENAME = sys.argv[-1] + ".pkl"
+CACHE_FILENAME = sys.argv[-1] + ".pickle"
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
@@ -63,14 +63,14 @@ if __name__ == "__main__":
     for thrd in pool:
         thrd.join()
 
-    api = tweepy.API(TWITTER_AUTH, parser = tweepy.parsers.JSONParser())
+    api = tweepy.API(TWITTER_CREDENTIALS, parser = tweepy.parsers.JSONParser())
 
     users = []
     failures = []
 
     # Load cached objects, if they exist
     try:
-        with open(sys.argv[1] + ".pkl", "rb") as fd:
+        with open(CACHE_FILENAME, "rb") as fd:
             while True:
                 try:
                     cached_users, cached_failures = pickle.load(self.fd)
@@ -99,7 +99,7 @@ if __name__ == "__main__":
                 wait_on_rate_limit = True
             )
 
-            retrieved_at = datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc)
+            retrieved_at = datetime.datetime.now(datetime.timezone.utc)
 
         except tweepy.TweepError:
             failures.append(id)
@@ -115,9 +115,10 @@ if __name__ == "__main__":
 
         # Every so often, save the users that we have to a file
         if doflush % FLUSH_FREQ == 0:
-            with open(fname, "ab") as fd:
-                pickle.dump((users[-FLUSH_FREQ:], failures[-FLUSH_FREQ:]), fd)
+            with open(fname, "ab") as file:
+                pickle.dump((users[-FLUSH_FREQ:], failures[-FLUSH_FREQ:]), file)
 
     # Add the users to the collection
-    with opendb() as db, opencoll(db, sys.argv[-1]) as coll:
+    with opendb() as db:
+        coll = db[sys.argv[-1]]
         coll.insert_many(users, ordered = False)

@@ -5,6 +5,7 @@ from email.utils import parsedate_to_datetime
 import io
 import itertools
 import json
+import operator
 import os
 import re
 import select
@@ -17,14 +18,14 @@ from urllib.error import HTTPError
 from urllib.request import urlopen
 from urllib.parse import urlencode
 
-import paramiko
-import pymongo
 from fuzzywuzzy import process as fuzz_process
 from nltk.corpus import stopwords
+import paramiko
+import pymongo
 
 __all__ = [
-    "TWITTER_AUTH",
-    "TWITTER_AUTHKEY",
+    "TWITTER_CREDENTIALS",
+    "GSPREAD_CREDENTIALS",
     "RUNNING_ON_DA2",
     "opentunnel",
     "opendb",
@@ -44,11 +45,11 @@ try:
     with open(filename, "r") as fd:
         creds = json.load(file)
 
-        # Twitter API authentication token for this project
+    # Twitter API authentication token for this project
     TWITTER_CREDENTIALS = OAuthHandler(creds["consumer"], creds["consumer_secret"])
-    TWITTER_AUTHKEY.set_access_token(creds["access_token"], creds["access_token_secret"])
+    TWITTER_CREDENTIALS.set_access_token(creds["access_token"], creds["access_token_secret"])
 except:
-    TWITTER_AUTHKEY = None
+    TWITTER_CREDENTIALS = None
 
 try:
     from oauth2client.service_account import ServiceAccountCredentials
@@ -69,30 +70,15 @@ try:
 except:
     GSPREAD_CREDENTIALS = None
 
-# To maintain backwards-compatibility
-TWITTER_AUTHKEY = TWITTER_CREDENTIALS
-TWITTER_AUTH = TWITTER_AUTHKEY
-
 RUNNING_ON_DA2 = socket.gethostname() == "75f7e392a7ec"
-
-try:
-    NullContext = contextlib.nullcontext
-except AttributeError: # Fix for Python <3.7
-    class NullContext:
-        def __init__(self):
-            pass
-
-        def __enter__(self):
-            pass
-
-        def __exit__(self, type, value, traceback):
-            pass
 
 class TunnelHandler(socketserver.BaseRequestHandler):
     def setup(self):
         self.transport = self.server.transport
         self.remote_hostname = self.server.remote_hostname
         self.remote_port = self.server.remote_port
+
+        self.chan = None
 
     def handle(self):
         try:
@@ -127,7 +113,9 @@ class TunnelHandler(socketserver.BaseRequestHandler):
                 self.request.send(data)
 
     def finish(self):
-        self.chan.close()
+        if self.chan is not None:
+            self.chan.close()
+
         self.request.close()
 
 class LocalForwardServer(socketserver.ThreadingTCPServer, threading.Thread):
@@ -154,14 +142,6 @@ class LocalForwardServer(socketserver.ThreadingTCPServer, threading.Thread):
     def run(self):
         self.serve_forever()
 
-class SFTPWrapper:
-    # TODO: Add more functions here
-    def open(self, *args, **kwargs):
-        return open(*args, **kwargs)
-
-    def mkdir(self, *args, **kwargs):
-        return os.mkdir(*args, **kwargs)
-
 @contextlib.contextmanager
 def opentunnel(*, hostname = None, port = None, username = None, password = None, pkey = None):
     if hostname is None:
@@ -183,102 +163,22 @@ def opentunnel(*, hostname = None, port = None, username = None, password = None
     #if not isinstance(pkey, paramiko.PKey) and password is None:
     #    raise TypeError
 
-    with contextlib.closing(paramiko.Transport((hostname, port))) as conn:
+    with contextlib.closing(paramiko.Transport((hostname, port))) as transport:
         if password is not None:
-            conn.connect(username = username, password = password)
+            transport.connect(username = username, password = password)
         else:
-            conn.connect(username = username, pkey = pkey)
+            transport.connect(username = username, pkey = pkey)
 
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            mongodb_isopen = (sock.connect_ex(("localhost", 27017)) == 0)
-            sock.detach()
-            jupyter_isopen = (sock.connect_ex(("localhost", 8889)) == 0)
+        #with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        #    mongodb_isopen = (sock.connect_ex(("", 27017)) == 0)
+        #    sock.detach()
+        #    jupyter_isopen = (sock.connect_ex(("", 8889)) == 0)
 
-        mongodb_fwd = NullContext() if mongodb_isopen else LocalForwardServer(conn, 27017, "da1.eecs.utk.edu", 27017)
-        jupyter_fwd = NullContext() if jupyter_isopen else LocalForwardServer(conn, 8889, "localhost", 8888)
+        mongodb_fwd = LocalForwardServer(transport, 27017, "da1.eecs.utk.edu", 27017)
+        jupyter_fwd = LocalForwardServer(transport, 8889, "localhost", 8888)
 
-        with mongodb_fwd, jupyter_fwd, contextlib.closing(conn.open_sftp_client()) as sftp:
+        with mongodb_fwd, jupyter_fwd, contextlib.closing(transport.open_sftp_client()) as sftp:
             yield sftp
-
-'''
-class MongoCollection(pymongo.Collection):
-    def __enter__(self):
-        index_tab = {
-            re.compile(r".*?:.*?_labeled"): [
-                pymongo.IndexModel([('tags', pymongo.ASCENDING)], name = 'tags_index')
-            ],
-            re.compile(r"statuses_.*?a.*?:.*"): [
-                pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
-                pymongo.IndexModel([('user.id', pymongo.HASHED)], name = 'user_id_index'),
-                pymongo.IndexModel([('user.screen_name', pymongo.HASHED)], name = 'user_screen_name_index'),
-                pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english'),
-                pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
-                pymongo.IndexModel([('retrieved_at', pymongo.ASCENDING)], name = 'retrieved_at_index')
-            ],
-            re.compile(r"statuses_.*?c.*?:.*"): [
-                pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index', sparse = True),
-                pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english', sparse = True)
-            ],
-            re.compile(r"statuses_.*?k.*?:.*"): [
-                pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
-                pymongo.IndexModel([('user.id', pymongo.HASHED)], name = 'user_id_index'),
-                pymongo.IndexModel([('user.screen_name', pymongo.HASHED)], name = 'user_screen_name_index'),
-                pymongo.IndexModel([('text', pymongo.TEXT)], name = 'text_index', default_language = 'english')
-            ],
-            re.compile(r"users_.*?a.*?:.*"): [
-                pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
-                pymongo.IndexModel([('screen_name', pymongo.HASHED)], name = 'screen_name_index'),
-                pymongo.IndexModel([('description', pymongo.TEXT)], name = 'description_index'),
-                pymongo.IndexModel([('created_at', pymongo.ASCENDING)], name = 'created_at_index'),
-                pymongo.IndexModel([('retrieved_at', pymongo.ASCENDING)], name = 'retrieved_at_index')
-            ],
-            re.compile(r"geolocations:.*"): [
-                pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
-                pymongo.IndexModel([('latitude', pymongo.ASCENDING), ('longitude', pymongo.ASCENDING)], name = 'latitude_longitude_index'),
-                pymongo.IndexModel([('geojson', pymongo.GEOSPHERE)], name = 'geojson_index')
-            ],
-            re.compile(r"media:.*"): [
-                pymongo.IndexModel([('id', pymongo.HASHED)], name = 'id_index'),
-                pymongo.IndexModel([('retrieved_at', pymongo.ASCENDING)], name = 'retrieved_at_index'),
-                pymongo.IndexModel([('media.retrieved_at', pymongo.ASCENDING)], name = 'media_retrieved_at_index'),
-                pymongo.IndexModel([('media.local_url', pymongo.ASCENDING)], name = 'media_local_url_index')
-            ]
-        }
-
-        # Set up indices
-        indices = sum((v for k, v in index_tab.items() if k.fullmatch(collname) is not None), [])
-
-        if indices:
-            self.create_indexes(indices)
-
-        return self
-
-    def __exit__(self, type, value, tb):
-        index_names = {i["name"] for i in self.list_indexes()}
-
-        # Remove duplicates
-        if "id_index" in index_names:
-            dups = []
-            ids = set()
-
-            with contextlib.closing(self.find(projection = ["id"], no_cursor_timeout = True)) as cursor:
-                if "retrieved_at_index" in index_names:
-                    cursor = cursor.sort("retrieved_at", direction = pymongo.DESCENDING)
-
-                for r in cursor:
-                    if 'id' in r:
-                        if r['id'] in ids:
-                            dups.append(r['_id'])
-
-                        ids.add(r['id'])
-
-            for i in range(0, len(dups), 800000):
-                coll.delete_many({"_id": {"$in": dups[i:i + 800000]}})
-
-class MongoDatabase(pymongo.Database):
-    def __getattr__(self, key):
-        return MongoCollection(self, key)
-'''
 
 @contextlib.contextmanager
 def opendb(*, hostname = None, dbname = "twitter"):
@@ -361,7 +261,7 @@ def addindices(coll):
         coll.create_indexes(indices)
 
 def rmdups(coll):
-    indices = dict(itertools.chain.from_iterable(i["key"].items() for i in coll.list_indices()))
+    indices = {k: v for k, v in index["key"].items() for index in coll.list_indices()}
     dups = []
 
     # Remove duplicates
@@ -385,6 +285,30 @@ def rmdups(coll):
             coll.delete_many({"_id": {"$in": dups[i:i + 800000]}})
 
     return len(dups)
+
+def searchcoll(coll, text, *args, **kwargs):
+    clauses = []
+
+    for match in searchcoll.regex.finditer(" " + self.text + " "):
+        clause = match.group().strip()
+
+        if clause not in searchcoll.stopwords:
+            if " " in clause:
+                clause = '"' + clause + '"'
+
+            clauses.append(clause)
+
+    mongo_query = {"$text": {"$search": ' '.join(clauses)}}
+
+    with contextlib.closing(coll.find(mongo_query, *args, no_cursor_timeout = True, **kwargs)) as cursor:
+        for r, score in fuzz_process.extractWithoutOrder({"text": text}, cursor, processor = operator.itemgetter("text")):
+            r["collection"] = coll.name
+            r["score"] = score
+
+            yield r
+
+searchcoll.regex = re.compile(r" (\w+ )+|\w+")
+searchcoll.stopwords = frozenset(stopwords.words('english') + ["http", "https", "www", "com", "net", "org"])
 
 # Open a default collection (setting up indices and removing duplicates)
 @contextlib.contextmanager
@@ -544,30 +468,6 @@ def getnicetext(r):
     return text
 
 getnicetext.regex = re.compile(r"RT @[A-Za-z0-9_]{1,15}: ")
-
-def searchcoll(coll, text, *args, **kwargs):
-    clauses = []
-
-    for match in IntelligentSearch.regex.finditer(" " + self.text + " "):
-        clause = match.group().strip()
-
-        if clause not in IntelligentSearch.stopwords:
-            if " " in clause:
-                clause = '"' + clause + '"'
-
-            clauses.append(clause)
-
-    mongo_query = {"$text": {"$search": ' '.join(clauses)}}
-
-    with contextlib.closing(coll.find(mongo_query, *args, no_cursor_timeout = True, **kwargs)) as cursor:
-        for r, score in fuzz_process.extractWithoutOrder({"text": text}, cursor, processor = lambda r: r["text"]):
-            r["collection"] = coll.name
-            r["score"] = score
-
-            yield r
-
-searchcoll.regex = re.compile(r" (\w+ )+|\w+")
-searchcoll.stopwords = frozenset(stopwords.words('english') + ["http", "https", "www", "com", "net", "org"])
 
 '''
 def getcleantext(r):

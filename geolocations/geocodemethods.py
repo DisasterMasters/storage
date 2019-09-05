@@ -5,6 +5,18 @@ import sys
 from common import *
 from streetaddress import StreetAddress
 
+__all__ = [
+    "status_coordinates",
+    "status_place",
+    "status_streetaddress_nlp",
+    "status_streetaddress_re",
+    "status_streetaddress_statemap",
+    "user_place",
+    "user_streetaddress_nlp",
+    "user_streetaddress_re",
+    "user_streetaddress_statemap"
+]
+
 def __geolocationdb_process(db_loc):
     lat = float(db_loc["lat"])
     lon = float(db_loc["lon"])
@@ -114,28 +126,13 @@ def status_place(status, user, geodb):
     return __place(status["place"], geodb, "status_place")
 
 def status_streetaddress_nlp(status, user, geodb):
-    try:
-        text = status["extended_tweet"]["full_text"]
-    except KeyError:
-        text = status["text"]
-
-    return __streetaddress(text, geodb, "status_streetaddress_nlp", StreetAddress.nlp)
+    return __streetaddress(getnicetext(status), geodb, "status_streetaddress_nlp", StreetAddress.nlp)
 
 def status_streetaddress_re(status, user, geodb):
-    try:
-        text = status["extended_tweet"]["full_text"]
-    except KeyError:
-        text = status["text"]
-
-    return __streetaddress(text, geodb, "status_streetaddress_re", StreetAddress.re)
+    return __streetaddress(getnicetext(status), geodb, "status_streetaddress_re", StreetAddress.re)
 
 def status_streetaddress_statemap(status, user, geodb):
-    try:
-        text = status["extended_tweet"]["full_text"]
-    except KeyError:
-        text = status["text"]
-
-    return __streetaddress(text, geodb, "status_streetaddress_statemap", StreetAddress.statemap)
+    return __streetaddress(getnicetext(status), geodb, "status_streetaddress_statemap", StreetAddress.statemap)
 
 def user_place(status, user, geodb):
     if user is None:

@@ -13,7 +13,7 @@ from error import geojson_error
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
-        print("Usage:", sys.argv[0], "<statuses collection> <users collection> <output collection>", file = sys.stderr)
+        print("Usage:", sys.argv[0], "<statuses collection> <users collection> <geolocations collection>", file = sys.stderr)
         exit(-1)
 
     ctr = collections.Counter()
@@ -70,22 +70,19 @@ if __name__ == "__main__":
 
             return r
 
-        with contextlib.ExitStack() as exitstack:
-            db = exitstack.enter_context(opendb())
-            coll_statuses = exitstack.enter_context(opencoll(db, sys.argv[1]))
-            coll_users = exitstack.enter_context(opencoll(db, sys.argv[2]))
-            coll_out = exitstack.enter_context(opencoll(db, sys.argv[3]))
+        with opendb() as db:
+            coll_statuses = db[sys.argv[1]]
+            coll_users = db[sys.argv[2]]
+            coll_out = db[sys.argv[3]]
 
-            cursor = coll_statuses.find(no_cursor_timeout = True)
-            cursor = exitstack.enter_context(contextlib.closing(cursor))
+            with contextlib.closing(coll_statuses.find(no_cursor_timeout = True)) as cursor:
+                for status in cursor:
+                    user = coll_users.find_one({"id": status["user"]["id"]})
 
-            for status in cursor:
-                user = coll_users.find_one({"id": status["user"]["id"]})
+                    r = get_coord_info(status, user)
 
-                r = get_coord_info(status, user)
-
-                if r is not None:
-                    coll_out.insert_one(r)
+                    if r is not None:
+                        coll_out.insert_one(r)
 
 '''
     msg = """

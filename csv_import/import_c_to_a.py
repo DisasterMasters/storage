@@ -7,12 +7,15 @@ from common import *
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: %s <collection_from> <collection_to>", file = sys.stderr)
+        print("Usage: " + sys.argv[0] + " <collection_from> <collection_to>", file = sys.stderr)
         exit(-1)
 
     api = tweepy.API(TWITTER_AUTH, parser = tweepy.parsers.JSONParser())
 
-    with opendb() as db, opencoll(db, sys.argv[1]) as coll_from, opencoll(db, sys.argv[2]) as coll_to:
+    with opendb() as db:
+        coll_from = db[sys.argv[1]]
+        coll_to = db[sys.argv[2]]
+
         for r0 in coll_from.find(projection = ["id"]):
             if coll_to.find({"id": r0["id"]}, projection = ["id"]) is not None:
                 continue
@@ -26,7 +29,7 @@ if __name__ == "__main__":
                     wait_on_rate_limit = True
                 )
 
-                retrieved_at = datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc)
+                retrieved_at = datetime.datetime.now(datetime.timezone.utc)
 
             except tweepy.TweepError:
                 continue

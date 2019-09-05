@@ -72,7 +72,8 @@ if __name__ == "__main__":
     with open(sys.argv[1], "r") as fd:
         exec(fd.read(), opts)
 
-    with opendb() as db, opencoll(db, opts["COLLNAME"]) as coll:
+    with opendb() as db:
+        coll = db[opts["COLLNAME"]]
         coll_mut = threading.Lock()
         pool = []
 
