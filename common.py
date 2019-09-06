@@ -261,7 +261,7 @@ def addindices(coll):
         coll.create_indexes(indices)
 
 def rmdups(coll):
-    indices = {k: v for index in coll.list_indices() for k, v in index["key"].items()}
+    indices = {k: v for index in coll.list_indexes() for k, v in index["key"].items()}
     dups = []
 
     # Remove duplicates
