@@ -75,7 +75,7 @@ if __name__ == "__main__":
             while True:
                 status = qu.get()
 
-                elif type(status) is list and type(status[0]) is dict:
+                if type(status) is list and type(status[0]) is dict:
                     # For debugging
                     print("\033[1m\033[31mGot some old tweets\033[0m")
 

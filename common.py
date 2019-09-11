@@ -255,7 +255,7 @@ def addindices(coll):
         ]
     }
 
-    indices = sum((v for k, v in index_tab.items() if k.fullmatch(collname) is not None), [])
+    indices = list(itertools.chain.from_iterable(v for k, v in index_tab.items() if k.fullmatch(collname) is not None))
 
     if indices:
         coll.create_indexes(indices)
