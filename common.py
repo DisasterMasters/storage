@@ -34,7 +34,8 @@ __all__ = [
     "opencoll",
     "statusconv",
     "adddates",
-    "searchcoll"
+    "searchcoll",
+    "getnicetext"
 ]
 
 try:
