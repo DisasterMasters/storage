@@ -255,7 +255,13 @@ def addindices(coll):
         ]
     }
 
-    indices = list(itertools.chain.from_iterable(v for k, v in index_tab.items() if k.fullmatch(collname) is not None))
+    indices = {}
+
+    for k, v in index_tab:
+        if k.fullmatch(coll.name):
+            indices.update({index.document["name"]: index for index in v})
+
+    indices = list(indices.values())
 
     if indices:
         coll.create_indexes(indices)
