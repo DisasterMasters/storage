@@ -42,7 +42,7 @@ try:
 
     filename = os.environ.get("TWITTER_CREDENTIALS", os.path.join(os.environ["HOME"], "twitter_creds.json"))
 
-    with open(filename, "r") as fd:
+    with open(filename, "r") as file:
         creds = json.load(file)
 
     # Twitter API authentication token for this project
