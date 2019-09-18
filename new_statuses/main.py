@@ -11,6 +11,7 @@ import sys
 import threading
 
 from bson import BSON
+from fuzzywuzzy import fuzz
 import tweepy
 
 from common import *
@@ -240,10 +241,10 @@ if __name__ == "__main__":
                 #    break
 
                 colls_to_insert = set()
-                text = getnicetext(status).lower()
+                text = getnicetext(status)
 
                 for keyword, collnames in keyword_map.items():
-                    if keyword.lower() in text:
+                    if fuzz.partial_ratio(keyword, text) > 80:
                         colls_to_insert |= collnames
 
                 if status["user"]["screen_name"] in username_map:
