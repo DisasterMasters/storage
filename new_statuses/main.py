@@ -12,6 +12,7 @@ import threading
 
 from bson import BSON
 from fuzzywuzzy import fuzz
+from shapely.geometry import shape
 import tweepy
 
 from common import *
@@ -50,7 +51,7 @@ def getnewtweets(qu, ev, keywords = [], usernames = [], locations = []):
         kwargs["follow"] = [api.get_user(username).id_str for username in usernames]
 
     if locations:
-        kwargs["locations"] = [i for bbox in locations for i in bbox]
+        kwargs["locations"] = [i for location in locations for i in shape(location).bounds]
 
     while True:
         try:
@@ -73,7 +74,8 @@ def getoldtweets(qu, ev, keywords = [], usernames = [], locations = []):
             queries.append(("username", username, None))
 
     if locations:
-        for [xmin, ymin, xmax, ymax] in locations:
+        for location in locations:
+            xmin, ymin, xmax, ymax = shape(location).bounds
             x = (xmin + xmax) / 2
             y = (ymin + ymax) / 2
 
@@ -161,17 +163,18 @@ if __name__ == "__main__":
 
     old_keywords = set()
     old_usernames = set()
-    old_locations = set()
+    old_locations = []
 
     new_keywords = set()
     new_usernames = set()
-    new_locations = set()
+    new_locations = []
 
-    SPATIAL_HASH_GRANULARITY = 5
+    #SPATIAL_HASH_GRANULARITY = 5
 
     keyword_map = collections.defaultdict(set)
     username_map = collections.defaultdict(set)
-    location_map = [[[] for _ in range(180 // SPATIAL_HASH_GRANULARITY)] for _ in range(360 // SPATIAL_HASH_GRANULARITY)]
+    #location_map = [[[] for _ in range(180 // SPATIAL_HASH_GRANULARITY)] for _ in range(360 // SPATIAL_HASH_GRANULARITY)]
+    location_map = []
 
     try:
         qu = queue.SimpleQueue()
@@ -190,10 +193,8 @@ if __name__ == "__main__":
         old_usernames.update(collparams["usernames"])
         old_usernames.update(collparams["old_usernames"])
 
-        #old_locations.update(map(tuple, collparams["locations"]))
-        #old_locations.update(map(tuple, collparams["old_locations"]))
-        old_locations.update(collparams["locations"])
-        old_locations.update(collparams["old_locations"])
+        old_locations.append(collparams["locations"])
+        old_locations.append(collparams["old_locations"])
 
         new_keywords.update(collparams["keywords"])
         new_keywords.update(collparams["new_keywords"])
@@ -201,10 +202,8 @@ if __name__ == "__main__":
         new_usernames.update(collparams["usernames"])
         new_usernames.update(collparams["new_usernames"])
 
-        #new_locations.update(map(tuple, collparams["locations"]))
-        #new_locations.update(map(tuple, collparams["new_locations"]))
-        new_locations.update(collparams["locations"])
-        new_locations.update(collparams["new_locations"])
+        new_locations.append(collparams["locations"])
+        new_locations.append(collparams["new_locations"])
 
         for keyword in itertools.chain(collparams["keywords"], collparams["old_keywords"], collparams["new_keywords"]):
             keyword_map[keyword].add(collname)
@@ -212,17 +211,14 @@ if __name__ == "__main__":
         for username in itertools.chain(collparams["usernames"], collparams["old_usernames"], collparams["new_usernames"]):
             username_map[username].add(collname)
 
-        for bbox in itertools.chain(collparams["locations"], collparams["old_locations"], collparams["new_locations"]):
-            for [xmin, ymin, xmax, ymax] in bbox:
-                pass # TODO
+        for location in itertools.chain(collparams["locations"], collparams["old_locations"], collparams["new_locations"]):
+            location_map.append((shape(location), collname))
 
     old_keywords = list(old_keywords)
     old_usernames = list(old_usernames)
-    old_locations = list(old_locations)
 
     new_keywords = list(new_keywords)
     new_usernames = list(new_usernames)
-    new_locations = list(new_locations)
 
     old_thrd = threading.Thread(target = getoldtweets, args = (qu, ev, old_keywords, old_usernames, old_locations))
     new_thrd = threading.Thread(target = getnewtweets, args = (qu, ev, new_keywords, new_usernames, new_locations))
@@ -237,9 +233,6 @@ if __name__ == "__main__":
             while True:
                 status = qu.get()
 
-                #if status is stop_sentinel:
-                #    break
-
                 colls_to_insert = set()
                 text = getnicetext(status)
 
@@ -250,7 +243,11 @@ if __name__ == "__main__":
                 if status["user"]["screen_name"] in username_map:
                     colls_to_insert |= username_map[status["user"]["screen_name"]]
 
-                # TODO: Add location selection here
+                #status_location = shape(...)
+
+                #for location, collname in location_map:
+                #    if location.intersection(status_location).area > 0.0:
+                #        colls_to_insert.add(collname)
 
                 if colls_to_insert:
                     for collname in colls_to_insert:

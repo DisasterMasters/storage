@@ -293,7 +293,9 @@ def rmdups(coll):
 
     return len(dups)
 
-def searchcoll(coll, text, *args, **kwargs):
+def searchcoll(colls, text, *args, **kwargs):
+    kwargs["no_cursor_timeout"] = True
+
     clauses = []
 
     for match in searchcoll.regex.finditer(" " + self.text + " "):
@@ -307,8 +309,18 @@ def searchcoll(coll, text, *args, **kwargs):
 
     mongo_query = {"$text": {"$search": ' '.join(clauses)}}
 
-    with contextlib.closing(coll.find(mongo_query, *args, no_cursor_timeout = True, **kwargs)) as cursor:
-        for r, score in fuzz_process.extractWithoutOrder({"text": text}, cursor, processor = operator.itemgetter("text")):
+    with contextlib.ExitStack() as exitstack:
+        cursors = []
+
+        for coll in colls:
+            cursor = coll.find(mongo_query, *args, **kwargs)
+            cursor = exitstack.enter_context(contextlib.closing(cursor))
+
+            cursors.append(cursor)
+
+        cursors = itertools.chain.from_iterable(cursors)
+
+        for r, score in fuzz_process.extractWithoutOrder({"text": text}, cursors, processor = operator.itemgetter("text")):
             r["collection"] = coll.name
             r["score"] = score
 
