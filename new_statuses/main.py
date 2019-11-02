@@ -134,7 +134,7 @@ def getoldtweets(qu, ev, keywords = [], usernames = [], locations = []):
 
             if statuses:
                 for status in statuses:
-                    qu.put(adddates(statusconv(r), timestamp))
+                    qu.put(adddates(statusconv(status), timestamp))
 
                 next_max_id = min(statuses, key = operator.itemgetter("id"))["id"] - 1
                 next_queries.append((query_type, query, next_max_id))
@@ -211,14 +211,18 @@ if __name__ == "__main__":
         for username in itertools.chain(collparams["usernames"], collparams["old_usernames"], collparams["new_usernames"]):
             username_map[username].add(collname)
 
-        for location in itertools.chain(collparams["locations"], collparams["old_locations"], collparams["new_locations"]):
-            location_map.append((shape(location), collname))
+        for location in [collparams["locations"], collparams["old_locations"], collparams["new_locations"]]:
+            if not isinstance(location, list):
+                location_map.append((shape(location), collname))
 
     old_keywords = list(old_keywords)
     old_usernames = list(old_usernames)
 
     new_keywords = list(new_keywords)
     new_usernames = list(new_usernames)
+
+    old_locations = [location for location in old_locations if not isinstance(location, list)]
+    new_locations = [location for location in new_locations if not isinstance(location, list)]
 
     old_thrd = threading.Thread(target = getoldtweets, args = (qu, ev, old_keywords, old_usernames, old_locations))
     new_thrd = threading.Thread(target = getnewtweets, args = (qu, ev, new_keywords, new_usernames, new_locations))
@@ -243,11 +247,17 @@ if __name__ == "__main__":
                 if status["user"]["screen_name"] in username_map:
                     colls_to_insert |= username_map[status["user"]["screen_name"]]
 
-                #status_location = shape(...)
+                if status["coordinates"] is not None:
+                    status_location = shape(status["coordinates"])
+                elif status["place"] is not None and status["place"]["bounding_box"] is not None:
+                    status_location = shape(status["place"]["bounding_box"])
+                else:
+                    status_location = None
 
-                #for location, collname in location_map:
-                #    if location.intersection(status_location).area > 0.0:
-                #        colls_to_insert.add(collname)
+                if status_location is not None:
+                    for location, collname in location_map:
+                        if location.intersection(status_location).area > 0.0:
+                            colls_to_insert.add(collname)
 
                 if colls_to_insert:
                     for collname in colls_to_insert:
