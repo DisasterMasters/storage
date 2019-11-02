@@ -187,6 +187,10 @@ if __name__ == "__main__":
         collname = "statuses_a:" + section
         collparams = collections.defaultdict(list, ((k, json.loads(v)) for k, v in parser[section].items()))
 
+        for key in ["locations", "old_locations", "new_locations"]:
+            if key not in collparams:
+                collparams[key] = None
+
         old_keywords.update(collparams["keywords"])
         old_keywords.update(collparams["old_keywords"])
 
@@ -212,7 +216,7 @@ if __name__ == "__main__":
             username_map[username].add(collname)
 
         for location in [collparams["locations"], collparams["old_locations"], collparams["new_locations"]]:
-            if not isinstance(location, list):
+            if location is not None:
                 location_map.append((shape(location), collname))
 
     old_keywords = list(old_keywords)
@@ -221,8 +225,8 @@ if __name__ == "__main__":
     new_keywords = list(new_keywords)
     new_usernames = list(new_usernames)
 
-    old_locations = [location for location in old_locations if not isinstance(location, list)]
-    new_locations = [location for location in new_locations if not isinstance(location, list)]
+    old_locations = [location for location in old_locations if location is not None]
+    new_locations = [location for location in new_locations if location is not None]
 
     old_thrd = threading.Thread(target = getoldtweets, args = (qu, ev, old_keywords, old_usernames, old_locations))
     new_thrd = threading.Thread(target = getnewtweets, args = (qu, ev, new_keywords, new_usernames, new_locations))
