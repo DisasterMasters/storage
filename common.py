@@ -258,7 +258,7 @@ def addindices(coll):
 
     indices = {}
 
-    for k, v in index_tab:
+    for k, v in index_tab.items():
         if k.fullmatch(coll.name):
             indices.update({index.document["name"]: index for index in v})
 
