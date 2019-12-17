@@ -80,8 +80,8 @@ def getoldtweets(qu, ev, keywords = [], usernames = [], locations = []):
                 return [query]
             else:
                 return itertools.chain(
-                    generate_keyword_list(k[:len(k) // 2]),
-                    generate_keyword_list(k[len(k) // 2:])
+                    generate_keyword_queries(k[:len(k) // 2]),
+                    generate_keyword_queries(k[len(k) // 2:])
                 )
 
         for query in generate_keyword_queries(keywords):
