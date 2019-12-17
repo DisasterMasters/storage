@@ -1,6 +1,7 @@
 import contextlib
 import copy
 import collections
+import datetime
 import sys
 
 import nltk
@@ -18,7 +19,7 @@ if __name__ == "__main__":
 
     ctr = collections.Counter()
 
-    with GeolocationDB("geolocations.db") as geodb:
+    with GeolocationDB("geolocations") as geodb:
         def get_coord_info(status, user):
             methods = [
                 status_coordinates,
@@ -43,7 +44,7 @@ if __name__ == "__main__":
 
             r["id"] = status["id"]
             r["error"] = geojson_error(r["latitude"], r["longitude"], r["geojson"])
-            r["retrieved_at"] = datetime.datetime.utcnow().replace(tzinfo = datetime.timezone.utc)
+            r["retrieved_at"] = datetime.datetime.now(datetime.timezone.utc)
 
             if r["error"] is None:
                 ctr["tweet_geo_errna"] += 1
@@ -74,6 +75,8 @@ if __name__ == "__main__":
             coll_statuses = db[sys.argv[1]]
             coll_users = db[sys.argv[2]]
             coll_out = db[sys.argv[3]]
+
+            addindices(coll_out)
 
             with contextlib.closing(coll_statuses.find(no_cursor_timeout = True)) as cursor:
                 for status in cursor:

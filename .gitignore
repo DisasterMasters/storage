@@ -1,3 +1,5 @@
 __pycache__
 *.pyc
 .idea
+geolocations/geolocations.db
+new_statuses/bitbucket.bson

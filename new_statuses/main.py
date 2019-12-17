@@ -98,37 +98,71 @@ def getoldtweets(qu, ev, keywords = [], usernames = [], locations = []):
             if ev.wait(1):
                 return
 
-            if query_type == "keyword":
-                statuses = api.search(
-                    query,
-                    result_type = "mixed",
-                    max_id = max_id,
-                    tweet_mode = "extended",
-                    include_entities = True,
-                    monitor_rate_limit = True,
-                    wait_on_rate_limit = True
-                ).get("statuses", [])
+            try:
+                if max_id is None:
+                    if query_type == "keyword":
+                        statuses = api.search(
+                            query,
+                            result_type = "mixed",
+                            tweet_mode = "extended",
+                            include_entities = True,
+                            monitor_rate_limit = True,
+                            wait_on_rate_limit = True
+                        ).get("statuses", [])
 
-            elif query_type == "username":
-                statuses = api.user_timeline(
-                    query,
-                    max_id = max_id,
-                    tweet_mode = "extended",
-                    include_entities = True,
-                    monitor_rate_limit = True,
-                    wait_on_rate_limit = True
-                )
+                    elif query_type == "username":
+                        statuses = api.user_timeline(
+                            query,
+                            tweet_mode = "extended",
+                            include_entities = True,
+                            monitor_rate_limit = True,
+                            wait_on_rate_limit = True
+                        )
 
-            elif query_type == "location":
-                statuses = api.search(
-                    geocode = query,
-                    result_type = "mixed",
-                    max_id = max_id,
-                    tweet_mode = "extended",
-                    include_entities = True,
-                    monitor_rate_limit = True,
-                    wait_on_rate_limit = True
-                ).get("statuses", [])
+                    elif query_type == "location":
+                        statuses = api.search(
+                            geocode = query,
+                            result_type = "mixed",
+                            tweet_mode = "extended",
+                            include_entities = True,
+                            monitor_rate_limit = True,
+                            wait_on_rate_limit = True
+                        ).get("statuses", [])
+                else:
+                    if query_type == "keyword":
+                        statuses = api.search(
+                            query,
+                            result_type = "mixed",
+                            max_id = max_id,
+                            tweet_mode = "extended",
+                            include_entities = True,
+                            monitor_rate_limit = True,
+                            wait_on_rate_limit = True
+                        ).get("statuses", [])
+
+                    elif query_type == "username":
+                        statuses = api.user_timeline(
+                            query,
+                            max_id = max_id,
+                            tweet_mode = "extended",
+                            include_entities = True,
+                            monitor_rate_limit = True,
+                            wait_on_rate_limit = True
+                        )
+
+                    elif query_type == "location":
+                        statuses = api.search(
+                            geocode = query,
+                            result_type = "mixed",
+                            max_id = max_id,
+                            tweet_mode = "extended",
+                            include_entities = True,
+                            monitor_rate_limit = True,
+                            wait_on_rate_limit = True
+                        ).get("statuses", [])
+            except Exception as err:
+                print("Exception for %s search %r: %r" % (query_type, query, err))
+                statuses = []
 
             timestamp = datetime.datetime.now(datetime.timezone.utc)
 
