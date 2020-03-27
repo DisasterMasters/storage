@@ -22,6 +22,7 @@ from fuzzywuzzy import process as fuzz_process
 from nltk.corpus import stopwords
 import paramiko
 import pymongo
+from tqdm import tqdm
 
 __all__ = [
     "TWITTER_CREDENTIALS",
@@ -267,13 +268,16 @@ def addindices(coll):
     if indices:
         coll.create_indexes(indices)
 
-def rmdups(coll):
+def rmdups(coll, *, pbar = False):
     indices = {k: v for index in coll.list_indexes() for k, v in index["key"].items()}
     dups = []
 
     # Remove duplicates
     if indices.get("id") is not None:
         with contextlib.closing(coll.find(projection = ["id"], no_cursor_timeout = True)) as cursor:
+            if pbar:
+                cursor = tqdm(cursor, total = coll.estimated_document_count())
+
             retrieved_at = indices.get("retrieved_at")
 
             if retrieved_at == pymongo.ASCENDING or retrieved_at == pymongo.DESCENDING:
