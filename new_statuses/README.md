@@ -1,30 +1,44 @@
-address.py extration of address from text
+# **Scrape tweets with Twitter API**
 
+## Usage
 ```
-addr = StreetAddress.nlp("We're having a party at 123 Foobar Rd, feel free to come visit! :)")
-print("Address contains the street " + addr.street)
-
-# Output:
-# Address contains the street Foobar Rd
+python3 main.py confg.ini
 ```
 
-main.py what you run
+## Specify keywords in a ini file
 ```
-python3 main.py input_collection output_collectio
+[power] // session name
+
+// list of keywords
+keywords = [
+    "electric power",
+    "electric outage",
+    "electricity",
+    "electricity out"
+    ]
 ```
+Running main.py with this sample ini file, will scrapes tweets that contain given keywords, then creates a collection called "statuses_a:power" in MongoDB and keep updating it. 
 
-No official rate limits, but may block you if you collect too fast
-
-geocode.py does the limiting, so you can safely run main.py as a single proces sper IP 
-
-
+## confg.ini with multiple sessions
+Creating multiple twitter collections. "statuses_a:power", "statuses_a:climate_change", "statuses_a:covid19"
 ```
-# Code from above here
+[power]
+keywords = [
+    "electric power",
+    "electric outage"
+    ]
 
-with GeolocationDB("geolocations") as geodb:
-    geo = geodb[addr]
-print(str(addr) + " maps to coordinates " + str((geo["lat"], geo["lon"])))
+[climate_change]
+keywords = [
+    "climate change",
+    "climatechange",
+    "global warming"
+    ]
 
-# Output:
-# 123 Foobar Rd maps to coordinates (12.3456789, -98.7654321)
+[covid19]
+keywords = [
+    "covid 19",
+    "covid19",
+    "coronavirus"
+    ]
 ```
